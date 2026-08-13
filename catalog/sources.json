@@ -1,0 +1,230 @@
+{
+  "sources": [
+    {
+      "id": "ru-whitelist-mobile",
+      "name": "Белые списки RU — Mobile CIDR TOP",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-mobile",
+      "catalog_subtype": "mobile"
+    },
+    {
+      "id": "ru-whitelist-mobile-codeberg",
+      "name": "Белые списки RU — Mobile CIDR резерв Codeberg",
+      "url": "https://codeberg.org/igareck/vpn-configs-for-russia/raw/branch/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-mobile",
+      "catalog_subtype": "mobile"
+    },
+    {
+      "id": "ru-whitelist-mobile-gitlab",
+      "name": "Белые списки RU — Mobile CIDR резерв GitLab",
+      "url": "https://gitlab.com/igareck/vpn-configs-for-russia/-/raw/main/Vless-Reality-White-Lists-Rus-Mobile.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-mobile",
+      "catalog_subtype": "mobile"
+    },
+    {
+      "id": "ru-whitelist-cidr-all",
+      "name": "Белые списки RU — CIDR полный",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/WHITE-CIDR-RU-all.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-all",
+      "catalog_subtype": "cidr_all"
+    },
+    {
+      "id": "ru-whitelist-cidr-checked",
+      "name": "Белые списки RU — CIDR проверенные хостеры",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/WHITE-CIDR-RU-checked.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-checked",
+      "catalog_subtype": "cidr_checked"
+    },
+    {
+      "id": "ru-whitelist-sni",
+      "name": "Белые списки RU — SNI резерв",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/WHITE-SNI-RU-all.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "enabled": true,
+      "mirror_group": "ru-white-sni",
+      "catalog_subtype": "sni"
+    },
+    {
+      "id": "ru-black-mobile",
+      "name": "Обычный VPN RU — Mobile TOP",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS_mobile.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true,
+      "mirror_group": "ru-black-mobile"
+    },
+    {
+      "id": "ru-black-vless",
+      "name": "Обычный VPN RU — VLESS полный",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_VLESS_RUS.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true,
+      "mirror_group": "ru-black-vless"
+    },
+    {
+      "id": "ru-black-all",
+      "name": "Обычный VPN RU — SS Hysteria Trojan VMess",
+      "url": "https://raw.githubusercontent.com/igareck/vpn-configs-for-russia/refs/heads/main/BLACK_SS%2BAll_RUS.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true,
+      "mirror_group": "ru-black-all"
+    },
+    {
+      "id": "au1rxx-verified",
+      "name": "Free VPN Subscriptions — проверенные",
+      "url": "https://raw.githubusercontent.com/Au1rxx/free-vpn-subscriptions/main/output/v2ray-base64.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-vless",
+      "name": "MatinGhanbari — VLESS",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/vless.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-trojan",
+      "name": "MatinGhanbari — Trojan",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/trojan.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-ss",
+      "name": "MatinGhanbari — Shadowsocks",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/ss.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-vmess",
+      "name": "MatinGhanbari — VMess",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/vmess.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-hysteria2",
+      "name": "MatinGhanbari — Hysteria2",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/filtered/subs/hysteria2.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "matin-super",
+      "name": "MatinGhanbari — Super Sub / TUIC",
+      "url": "https://raw.githubusercontent.com/MatinGhanbari/v2ray-configs/main/subscriptions/v2ray/super-sub.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "ebrasha-all",
+      "name": "EbraSha — проверенный смешанный каталог",
+      "url": "https://raw.githubusercontent.com/ebrasha/free-v2ray-public-list/refs/heads/main/V2Ray-Config-By-EbraSha-All-Type.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": false
+    },
+    {
+      "id": "f0rc3run-vless",
+      "name": "F0rc3Run — VLESS проверенные",
+      "url": "https://raw.githubusercontent.com/F0rc3Run/F0rc3Run/refs/heads/main/splitted-by-protocol/vless.txt",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    },
+    {
+      "id": "v2nodes-france",
+      "name": "V2Nodes — Франция",
+      "url": "https://ru.v2nodes.com/country/fr/",
+      "type": "v2nodes_country",
+      "catalog_class": "regular",
+      "enabled": true,
+      "max_pages": 12
+    },
+    {
+      "id": "ru-whitelist-cidr-all-gitlab",
+      "name": "Белые списки RU — CIDR полный резерв GitLab",
+      "url": "https://gitlab.com/igareck/vpn-configs-for-russia/-/raw/main/WHITE-CIDR-RU-all.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "catalog_subtype": "cidr_all",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-all"
+    },
+    {
+      "id": "ru-whitelist-cidr-all-codeberg",
+      "name": "Белые списки RU — CIDR полный резерв Codeberg",
+      "url": "https://codeberg.org/igareck/vpn-configs-for-russia/raw/branch/main/WHITE-CIDR-RU-all.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "catalog_subtype": "cidr_all",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-all"
+    },
+    {
+      "id": "ru-whitelist-cidr-checked-gitlab",
+      "name": "Белые списки RU — CIDR проверенные резерв GitLab",
+      "url": "https://gitlab.com/igareck/vpn-configs-for-russia/-/raw/main/WHITE-CIDR-RU-checked.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "catalog_subtype": "cidr_checked",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-checked"
+    },
+    {
+      "id": "ru-whitelist-cidr-checked-codeberg",
+      "name": "Белые списки RU — CIDR проверенные резерв Codeberg",
+      "url": "https://codeberg.org/igareck/vpn-configs-for-russia/raw/branch/main/WHITE-CIDR-RU-checked.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "catalog_subtype": "cidr_checked",
+      "enabled": true,
+      "mirror_group": "ru-white-cidr-checked"
+    },
+    {
+      "id": "ru-whitelist-sni-gitlab",
+      "name": "Белые списки RU — SNI резерв GitLab",
+      "url": "https://gitlab.com/igareck/vpn-configs-for-russia/-/raw/main/WHITE-SNI-RU-all.txt",
+      "type": "subscription",
+      "catalog_class": "whitelist",
+      "catalog_subtype": "sni",
+      "enabled": true,
+      "mirror_group": "ru-white-sni"
+    },
+    {
+      "id": "abc-fresh",
+      "name": "ABC Configs — свежие каждые 10 минут",
+      "url": "https://raw.githubusercontent.com/FreeFolksOn/abc-configs-free-vpn-proxy-list/main/README.md",
+      "type": "subscription",
+      "catalog_class": "regular",
+      "enabled": true
+    }
+  ]
+}

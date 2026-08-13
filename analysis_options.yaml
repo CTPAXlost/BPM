@@ -1,0 +1,12 @@
+analyzer:
+  errors:
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
+
+linter:
+  rules:
+    avoid_print: true
+    directives_ordering: true
+    prefer_single_quotes: true
+    use_super_parameters: true
