@@ -15,8 +15,8 @@ import '../utils/node_parser.dart';
 import 'catalog_service.dart';
 import 'latency_service.dart';
 import 'storage_service.dart';
-import 'warpgen_bridge.dart';
 import 'warp_provisioning_service.dart';
+import 'warpgen_bridge.dart';
 
 class AppController extends ChangeNotifier {
   AppController()

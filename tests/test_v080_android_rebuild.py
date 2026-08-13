@@ -88,6 +88,13 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("unused_import: error", analysis)
         self.assertIn("dead_code: error", analysis)
 
+    def test_app_controller_imports_follow_directives_ordering(self) -> None:
+        controller = self.read("lib/services/app_controller.dart")
+        self.assertLess(
+            controller.index("import 'warp_provisioning_service.dart';"),
+            controller.index("import 'warpgen_bridge.dart';"),
+        )
+
 
     def test_setup_errors_do_not_count_as_dead_server(self) -> None:
         controller = self.read("lib/services/app_controller.dart")
