@@ -146,7 +146,10 @@ class AndroidRebuildTests(unittest.TestCase):
                 '}\n',
                 encoding="utf-8",
             )
-            (root / "android/gradle.properties").write_text('', encoding="utf-8")
+            (root / "android/gradle.properties").write_text(
+                "android.bundle.enableUncompressedNativeLibs=false\n",
+                encoding="utf-8",
+            )
             (root / "third_party/amneziawg-android/tunnel").mkdir(parents=True)
             (root / "third_party/amneziawg-android/tunnel/build.gradle.kts").write_text(
                 '// replaced by patcher\n', encoding="utf-8"
@@ -173,6 +176,9 @@ class AndroidRebuildTests(unittest.TestCase):
                 / "android/app/src/main/kotlin/app/pokolenie/vpn/MainActivity.kt"
             ).read_text(encoding="utf-8")
             gradle = (root / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+            gradle_properties = (root / "android/gradle.properties").read_text(
+                encoding="utf-8"
+            )
             self.assertNotIn("usesCleartextTraffic", manifest)
             self.assertNotIn("QUERY_ALL_PACKAGES", manifest)
             self.assertEqual(manifest.count("WarpGenActivity"), 1)
@@ -180,6 +186,7 @@ class AndroidRebuildTests(unittest.TestCase):
             self.assertEqual(kotlin.count("import android.util.Base64"), 1)
             self.assertEqual(kotlin.count("tunnelName = requestedName"), 1)
             self.assertEqual(gradle.count("useLegacyPackaging = true"), 1)
+            self.assertNotIn("enableUncompressedNativeLibs", gradle_properties)
             self.assertEqual(gradle.count('implementation(project(":amneziawg_tunnel"))'), 1)
 
     def test_generated_validation_allows_flutter_workdirs_only_explicitly(self) -> None:

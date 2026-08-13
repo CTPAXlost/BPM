@@ -8,6 +8,7 @@
 - Массовая WARP-проверка выполняется последовательно и использует общий карантин/автоудаление.
 - Split tunneling работает в режимах include/exclude для sing-box и AmneziaWG.
 - Android ABI ограничен `arm64-v8a`, нативные библиотеки упаковываются сжато.
+- Удалён несовместимый с AGP 8.1+ параметр `enableUncompressedNativeLibs`; упаковкой управляет `jniLibs.useLegacyPackaging`.
 - Версия повышена до `0.9.0+90`.
 
 ## 0.8.1

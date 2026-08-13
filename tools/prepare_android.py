@@ -1005,10 +1005,19 @@ def _patch_gradle_properties() -> None:
     text = properties.read_text(encoding="utf-8") if properties.exists() else ""
     required = {
         "amneziawgPackageName": AWG_PACKAGE,
-        "android.bundle.enableUncompressedNativeLibs": "false",
         "org.gradle.vfs.watch": "false",
     }
-    lines = text.splitlines()
+    removed_options = {
+        "android.bundle.enableUncompressedNativeLibs",
+    }
+    lines = [
+        line
+        for line in text.splitlines()
+        if not any(
+            re.match(rf"^{re.escape(key)}=", line)
+            for key in removed_options
+        )
+    ]
     for key, value in required.items():
         pattern = re.compile(rf"^{re.escape(key)}=")
         for index, line in enumerate(lines):
