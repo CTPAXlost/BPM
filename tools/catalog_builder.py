@@ -32,7 +32,7 @@ LINK_RE = re.compile(r"(?:(?:" + "|".join(SCHEMES) + r")://[^\s\"'<>]+)", re.I)
 SERVER_LINK_RE = re.compile(r'href=["\'](?P<url>(?:https?://[^"\']+)?/servers/\d+/)["\']', re.I)
 HREF_RE = re.compile(r'href=["\'](?P<url>[^"\']+)["\']', re.I)
 MAX_DOWNLOAD = 8 * 1024 * 1024
-USER_AGENT = "Pokolenie-VPN-Catalog/0.9.0 (+GitHub Actions)"
+USER_AGENT = "Pokolenie-VPN-Catalog/0.9.1 (+GitHub Actions)"
 COUNTRIES = {
     "germany": ("DE", "Германия"), "герман": ("DE", "Германия"),
     "france": ("FR", "Франция"), "франц": ("FR", "Франция"),

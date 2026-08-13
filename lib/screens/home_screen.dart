@@ -207,7 +207,7 @@ class _ModeCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             auto
-                ? 'При подключении выбирается лучший из профилей, ответивших на URL Test. Это предварительный отбор, а не скрытое подключение.'
+                ? 'При подключении выбирается лучший из профилей, уже передавших HTTPS через временный VPN-туннель.'
                 : 'Подключается только сервер, который выбран тобой в списке.',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
@@ -263,7 +263,7 @@ class _CatalogSummary extends StatelessWidget {
               Expanded(
                 child: _Metric(
                   value: '${controller.workingCount}',
-                  label: 'URL Test OK',
+                  label: 'VPN проверен',
                   icon: Icons.check_circle_rounded,
                 ),
               ),
@@ -285,7 +285,7 @@ class _CatalogSummary extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'URL Test: ${controller.testingCompleted} из ${controller.testingTotal}',
+              'Проверка подключения: ${controller.testingCompleted} из ${controller.testingTotal}',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
           ],
@@ -410,7 +410,7 @@ class _HonestTestNote extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'URL Test и подключение разделены. URL Test не запрашивает VPN-разрешение и не включает системный туннель. Полный доступ в интернет подтверждается только после твоего нажатия «Подключить».',
+              'Проверка временно подключает каждый сервер и подтверждает HTTPS через VPN. После теста туннель автоматически выключается.',
               style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
           ),

@@ -201,4 +201,20 @@ void main() {
     expect(NodeParser.catalogCompatibilityError(node), isNull);
   });
 
+  test('imports Portal WG config without spaces around equals', () {
+    const config = '[Interface]\n'
+        'PrivateKey=AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=\n'
+        'Address=172.16.0.2/32\n'
+        'Jc=4\n\n'
+        '[Peer]\n'
+        'PublicKey=ISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0A=\n'
+        'AllowedIPs=0.0.0.0/0,::/0\n'
+        'Endpoint=162.159.192.7:2408\n';
+    final wrapped = jsonEncode(<String, dynamic>{'config': config});
+    final node = NodeParser.parse(wrapped, source: 'Portal WG');
+    expect(node, isNotNull);
+    expect(node!.metadata['engine'], 'amneziawg');
+    expect(NodeParser.catalogCompatibilityError(node), isNull);
+  });
+
 }

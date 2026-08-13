@@ -12,7 +12,7 @@ class NodeCard extends StatelessWidget {
     required this.onTest,
     required this.onFavorite,
     required this.onDelete,
-    this.testLabel = 'URL Test',
+    this.testLabel = 'Проверить подключение',
     super.key,
   });
 
@@ -171,17 +171,17 @@ class NodeCard extends StatelessWidget {
           AppColors.violet,
         ),
       NodeHealth.online => _NodeStatus(
-          'URL Test · ${node.latencyMs ?? 0} мс',
+          'VPN проверен · ${node.latencyMs ?? 0} мс',
           Icons.check_circle_rounded,
           AppColors.mint,
         ),
       NodeHealth.slow => _NodeStatus(
-          'URL Test · ${node.latencyMs ?? 0} мс · медленно',
+          'VPN проверен · ${node.latencyMs ?? 0} мс · медленно',
           Icons.network_check_rounded,
           Colors.orangeAccent,
         ),
       NodeHealth.offline => const _NodeStatus(
-          'URL Test не пройден',
+          'VPN-подключение не прошло',
           Icons.cloud_off_rounded,
           AppColors.danger,
         ),

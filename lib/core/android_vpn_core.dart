@@ -210,7 +210,20 @@ class AndroidVpnCore implements VpnCore {
   }) async {
     if (!Platform.isAndroid) {
       return const ProbeResult.failure(
-        'URL Test доступен только в Android-сборке.',
+        'Проверка подключения доступна только в Android-сборке.',
+        definitive: false,
+      );
+    }
+    if (_state != VpnCoreState.disconnected) {
+      return const ProbeResult.failure(
+        'Отключи активный VPN перед проверкой подключения.',
+        definitive: false,
+      );
+    }
+    if (node.protocol != VpnProtocol.warp && !_singboxReady) {
+      final reason = _singboxInitError?.toString() ?? 'неизвестная ошибка';
+      return ProbeResult.failure(
+        'Ядро sing-box не инициализировано: $reason',
         definitive: false,
       );
     }
@@ -222,77 +235,33 @@ class AndroidVpnCore implements VpnCore {
           kind: ProbeKind.configValidation,
         );
       }
-      final granted = await _awg.requestPermission();
-      if (!granted) {
-        return const ProbeResult.failure(
-          'Для реального WARP-теста требуется разрешение Android VPN.',
-          definitive: false,
-        );
-      }
-      final started = DateTime.now();
-      try {
-        await _awg.start(
-          config: _warpConfig(node, settings),
-          name: 'pokolenie-warp-test',
-        );
-        while (DateTime.now().difference(started) < timeout) {
-          final probe = await _awg.probeVpnNetwork();
-          if (probe.success) {
-            return ProbeResult.urlTestSuccess(
-              probe.latencyMs > 0
-                  ? probe.latencyMs
-                  : DateTime.now().difference(started).inMilliseconds,
-              detail: 'HTTPS через временный WARP-туннель подтверждён.',
-            );
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 600));
-        }
-        return const ProbeResult.failure(
-          'WARP-туннель не передал HTTPS-трафик до истечения тайм-аута.',
-        );
-      } catch (error) {
-        return ProbeResult.failure('WARP-тест не выполнен: $error');
-      } finally {
-        try {
-          await _awg.stop();
-        } catch (_) {
-          // Best-effort cleanup after an isolated probe.
-        }
-      }
-    }
-    if (_state != VpnCoreState.disconnected) {
-      return const ProbeResult.failure(
-        'Отключи активный VPN перед URL Test. Приложение не отключает его само.',
-        definitive: false,
-      );
-    }
-    if (!_singboxReady) {
-      final reason = _singboxInitError?.toString() ?? 'неизвестная ошибка';
-      return ProbeResult.failure(
-        'Ядро sing-box не инициализировано: $reason',
-        definitive: false,
-      );
     }
 
+    final started = DateTime.now();
     try {
-      final parsed = _vpn.parseConfigLink(node.rawConfig);
-      final dynamic ping = await _vpn
-          .pingProfile(profile: parsed.profile)
-          .timeout(timeout);
-      final success = ping.success == true;
-      final latency = (ping.latencyMs as num?)?.toInt();
-      final error = ping.error?.toString().trim() ?? '';
-      if (success && latency != null && latency >= 0) {
-        return ProbeResult.urlTestSuccess(
-          latency,
-          detail: 'Профиль ответил на URL Test без запуска системного VPN.',
+      await connect(node, settings);
+      final elapsed = DateTime.now().difference(started);
+      final remaining = timeout - elapsed;
+      if (remaining <= Duration.zero) {
+        return const ProbeResult.failure(
+          'Туннель не успел передать трафик до истечения тайм-аута.',
         );
       }
-      return ProbeResult.failure(
-        error.isEmpty ? 'Профиль не ответил в пределах тайм-аута.' : error,
-      );
+      final validation = await validateConnected(remaining);
+      if (validation.success) {
+        return ProbeResult.urlTestSuccess(
+          validation.latencyMs ?? elapsed.inMilliseconds,
+          detail: node.protocol == VpnProtocol.warp
+              ? 'Подключение и HTTPS через временный WARP/AWG-туннель подтверждены.'
+              : 'Подключение и HTTPS через временный VPN-туннель подтверждены.',
+        );
+      }
+      return ProbeResult.failure(validation.detail,
+          definitive: validation.definitive);
     } on TimeoutException {
-      return const ProbeResult.failure('URL Test превысил заданный тайм-аут.');
+      return const ProbeResult.failure(
+        'Подключение и передача HTTPS-трафика не подтвердились вовремя.',
+      );
     } on sb.SignboxVpnException catch (error) {
       return ProbeResult.failure('${error.code}: ${error.message}');
     } catch (error) {
@@ -302,9 +271,18 @@ class AndroidVpnCore implements VpnCore {
           lower.contains('invalid') ||
           lower.contains('format');
       return ProbeResult.failure(
-        'URL Test не выполнен: $error',
-        definitive: parseFailure,
+        'Проверка подключения не выполнена: $error',
+        definitive: parseFailure ||
+            (!lower.contains('permission') &&
+                !lower.contains('разрешен') &&
+                !lower.contains('разрешён')),
       );
+    } finally {
+      try {
+        await disconnect();
+      } catch (_) {
+        // Best-effort cleanup after an isolated full-tunnel probe.
+      }
     }
   }
 
@@ -319,31 +297,23 @@ class AndroidVpnCore implements VpnCore {
     }
     final started = DateTime.now();
     try {
-      if (_usingAwg) {
-        while (DateTime.now().difference(started) < timeout) {
-          final probe = await _awg.probeVpnNetwork();
-          if (probe.success) {
-            return ProbeResult.connectedTunnelSuccess(
-              probe.latencyMs,
-              detail: 'HTTPS-трафик через WARP/AWG подтверждён.',
-            );
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 750));
-        }
-        return const ProbeResult.failure(
-          'WARP поднялся, но интернет через VPN-сеть не подтвердился.',
-          kind: ProbeKind.connectedTunnel,
-        );
-      }
-
       while (DateTime.now().difference(started) < timeout) {
-        final details = await _vpn.getStateDetails();
-        if (details.networkValidated == true) {
+        final probe = await _awg.probeVpnNetwork();
+        if (probe.success) {
           return ProbeResult.connectedTunnelSuccess(
-            DateTime.now().difference(started).inMilliseconds,
-            detail: 'Android подтвердил интернет через VPN-сеть.',
+            probe.latencyMs > 0
+                ? probe.latencyMs
+                : DateTime.now().difference(started).inMilliseconds,
+            detail: _usingAwg
+                ? 'HTTPS-трафик через WARP/AWG подтверждён двумя независимыми адресами.'
+                : 'HTTPS-трафик через VPN подтверждён двумя независимыми адресами.',
           );
         }
+        if (_usingAwg) {
+          await Future<void>.delayed(const Duration(milliseconds: 750));
+          continue;
+        }
+        final details = await _vpn.getStateDetails();
         if (details.state == sb.VpnConnectionState.error) {
           return ProbeResult.failure(
             details.detailCode ?? 'VPN-ядро сообщило об ошибке.',
@@ -355,9 +325,8 @@ class AndroidVpnCore implements VpnCore {
       final details = await _vpn.getStateDetails();
       return ProbeResult.failure(
         details.detailCode ??
-            'VPN подключён, но Android не подтвердил доступ в интернет.',
+            'Туннель поднялся, но HTTPS через VPN-сеть не прошёл.',
         kind: ProbeKind.connectedTunnel,
-        definitive: false,
       );
     } catch (error) {
       return ProbeResult.failure(

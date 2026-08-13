@@ -107,7 +107,7 @@ class _Header extends StatelessWidget {
                     ),
                     Text(
                       '${controller.regularNodes.length} конфигураций · '
-                      '${controller.workingCount} ответили на URL Test',
+                      '${controller.workingCount} прошли VPN-проверку',
                       style: const TextStyle(color: AppColors.textMuted),
                     ),
                   ],
@@ -132,7 +132,7 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           const Text(
-            'URL Test не подключает VPN и не запрашивает разрешение Android.',
+            'Проверка временно подключает сервер и подтверждает HTTPS именно через VPN.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
@@ -205,7 +205,7 @@ class _TestProgress extends StatelessWidget {
           LinearProgressIndicator(value: progress),
           const SizedBox(height: 6),
           Text(
-            'URL Test: ${controller.testingCompleted} из $total',
+            'Проверка подключения: ${controller.testingCompleted} из $total',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],

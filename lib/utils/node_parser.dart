@@ -148,15 +148,14 @@ class NodeParser {
     }
     if (!sawInterface || !sawPeer) return null;
     final result = output.join('\n').trim();
-    final lower = result.toLowerCase();
     for (final field in const <String>[
-      'privatekey =',
-      'address =',
-      'publickey =',
-      'allowedips =',
-      'endpoint =',
+      'PrivateKey',
+      'Address',
+      'PublicKey',
+      'AllowedIPs',
+      'Endpoint',
     ]) {
-      if (!lower.contains(field)) return null;
+      if (_wgValue(result, field) == null) return null;
     }
     return '$result\n';
   }
@@ -395,6 +394,7 @@ class NodeParser {
 
     final lower = raw.toLowerCase();
     final isWarpGen = lower.contains('warpgen.net') ||
+        lower.contains('warp-gen1.vercel.app') ||
         lower.contains('generated with warpgen') ||
         source.toLowerCase().contains('warpgen');
     final isAwg = RegExp(

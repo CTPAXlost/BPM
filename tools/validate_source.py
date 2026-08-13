@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.9.0"
-EXPECTED_BUILD = "90"
+EXPECTED_VERSION = "0.9.1"
+EXPECTED_BUILD = "91"
 
 
 def read(relative: str) -> str:
@@ -67,7 +67,7 @@ def validate_version(errors: list[str]) -> None:
     pubspec = read("pubspec.yaml")
     check(
         f"version: {EXPECTED_VERSION}+{EXPECTED_BUILD}" in pubspec,
-        "pubspec version is not 0.9.0+90",
+        "pubspec version is not 0.9.1+91",
         errors,
     )
     check("window_manager" not in pubspec, "Desktop dependency remains", errors)
@@ -88,18 +88,17 @@ def validate_architecture(errors: list[str]) -> None:
     workflow = read(".github/workflows/build.yml")
 
     check("Future<ProbeResult> test(" in core, "Android URL Test is missing", errors)
-    check("pingProfile(profile: parsed.profile)" in core, "URL Test does not use profile probe", errors)
+    check("pingProfile" not in core, "Legacy false-positive profile ping remains", errors)
     test_block = core.split("Future<ProbeResult> test(", 1)[1].split("Future<ProbeResult> validateConnected", 1)[0]
-    check("requestVpnPermission" not in test_block, "URL Test requests VPN permission", errors)
-    check("await _vpn.start()" not in test_block, "URL Test starts the VPN", errors)
-    check("await _awg.start" in test_block, "WARP test does not start a temporary tunnel", errors)
-    check("await _awg.stop" in test_block, "WARP test does not stop its temporary tunnel", errors)
-    check("VPN не включался" in controller, "User-facing no-VPN test message is missing", errors)
+    check("await connect(node, settings)" in test_block, "Full tunnel probe is missing", errors)
+    check("await validateConnected(remaining)" in test_block, "VPN-bound HTTPS validation is missing", errors)
+    check("await disconnect()" in test_block, "Temporary tunnel cleanup is missing", errors)
+    check("HTTPS через VPN прошёл" in controller, "User-facing tunnel validation message is missing", errors)
     check("url_test_failures" in controller, "Repeated failure tracking is missing", errors)
     check("removeAfterFailures" in controller, "Removal threshold is missing", errors)
     check("hasBaseInternet" in controller, "Base internet guard is missing", errors)
     check("core.test(node, timeout" in latency, "Latency service does not delegate real probes", errors)
-    check("warpGenNet" in warp and "warpGenGithub" in warp, "Both WARP sources are missing", errors)
+    check("portalWg" in warp and "warpGenNet" in warp and "warpGenGithub" in warp, "WARP sources are incomplete", errors)
     check("openAndCapture" in warp, "Single WARP capture bridge is missing", errors)
     check("Windows" not in workflow and "windows:" not in workflow, "Windows CI job remains", errors)
     check("prepare_android.py" in workflow, "Android patcher is not used", errors)
@@ -248,7 +247,7 @@ def main() -> None:
         for error in errors:
             print(f"ERROR: {error}")
         raise SystemExit(1)
-    print("Pokolenie VPN 0.9.0 Android source validation: OK")
+    print("Pokolenie VPN 0.9.1 Android source validation: OK")
 
 
 if __name__ == "__main__":

@@ -398,7 +398,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "openAndCapture" -> openWarpGen(
-                    call.argument<String>("url") ?: "https://warpgen.net",
+                    call.argument<String>("url") ?: "https://warp-gen1.vercel.app/",
                     result,
                 )
                 else -> result.notImplemented()
@@ -674,7 +674,7 @@ class WarpGenActivity : Activity(), DownloadListener {
     companion object {
         const val EXTRA_CONFIG = "warpgen_config"
         const val EXTRA_URL = "warpgen_url"
-        private const val START_URL = "https://warpgen.net/"
+        private const val START_URL = "https://warp-gen1.vercel.app/"
     }
 
     private lateinit var webView: WebView
@@ -722,7 +722,8 @@ class WarpGenActivity : Activity(), DownloadListener {
         val parsed = try { android.net.Uri.parse(url) } catch (_: Throwable) { return false }
         val host = parsed.host?.lowercase() ?: return false
         return parsed.scheme == "https" &&
-            (host == "warpgen.net" || host == "warp-gen.github.io")
+            (host == "warpgen.net" || host == "warp-gen.github.io" ||
+                host == "warp-gen1.vercel.app")
     }
 
     private fun handleNavigation(view: WebView, url: String): Boolean {
@@ -911,12 +912,12 @@ class WarpGenActivity : Activity(), DownloadListener {
         }
         if (!sawInterface || !sawPeer) return null
         val result = output.joinToString("\n").trim()
-        val lower = result.lowercase()
-        if (!lower.contains("privatekey =") ||
-            !lower.contains("publickey =") ||
-            !lower.contains("allowedips =") ||
-            !lower.contains("endpoint =") ||
-            !lower.contains("address =")) return null
+        val required = listOf("privatekey", "publickey", "allowedips", "endpoint", "address")
+        val present = result.lines().mapNotNull { line ->
+            val separator = line.indexOf('=')
+            if (separator <= 0) null else line.substring(0, separator).trim().lowercase()
+        }.toSet()
+        if (!present.containsAll(required)) return null
         return "$result\n"
     }
 

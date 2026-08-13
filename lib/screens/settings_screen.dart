@@ -52,7 +52,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     _SwitchSetting(
-                      title: 'URL Test после обновления',
+                      title: 'Проверять подключение после обновления',
                       subtitle:
                           'Проверяет новые обычные профили без включения VPN.',
                       value: settings.autoTestAfterRefresh,
@@ -152,35 +152,26 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 _Section(
-                  title: 'URL Test',
+                  title: 'Проверка подключения',
                   icon: Icons.speed_rounded,
                   children: <Widget>[
                     const _InfoLine(
                       text:
-                          'URL Test не запускает Android VPN и не подтверждает '
-                          'работу любого сайта. Он отбраковывает профиль по '
-                          'ответу тестового URL.',
+                          'Проверка временно поднимает Android VPN и требует '
+                          'успешный HTTPS через туннель. Выполняется строго '
+                          'по одному серверу.',
                     ),
                     _ChoiceSetting(
                       title: 'Тайм-аут',
                       value: settings.urlTestTimeoutMs,
-                      values: const <int>[3000, 5000, 6000, 8000, 10000, 15000],
+                      values: const <int>[12000, 15000, 20000, 30000, 45000],
                       label: (value) => '${value ~/ 1000} сек.',
                       onChanged: (value) => controller.updateSettings(
                         settings.copyWith(urlTestTimeoutMs: value),
                       ),
                     ),
-                    _ChoiceSetting(
-                      title: 'Параллельные проверки',
-                      value: settings.urlTestConcurrency,
-                      values: const <int>[1, 2, 3, 4],
-                      label: (value) => '$value',
-                      onChanged: (value) => controller.updateSettings(
-                        settings.copyWith(urlTestConcurrency: value),
-                      ),
-                    ),
                     _SwitchSetting(
-                      title: 'Удалять после провалов URL Test',
+                      title: 'Удалять после провалов подключения',
                       subtitle:
                           'Только после нескольких подтверждённых провалов.',
                       value: settings.autoRemoveUnavailable,
@@ -207,7 +198,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     _SwitchSetting(
-                      title: 'Скрывать не прошедшие URL Test',
+                      title: 'Скрывать не прошедшие проверку',
                       subtitle:
                           'Оставляет их в каталоге, но убирает из списка.',
                       value: settings.hideOffline,
@@ -225,7 +216,7 @@ class SettingsScreen extends StatelessWidget {
                     _SwitchSetting(
                       title: 'Автовыбор лучшего',
                       subtitle:
-                          'Берёт лучший из профилей, ответивших на URL Test.',
+                          'Берёт лучший из профилей, передавших HTTPS через VPN.',
                       value: settings.autoSelectBest,
                       onChanged: (value) => controller.updateSettings(
                         settings.copyWith(autoSelectBest: value),
@@ -573,9 +564,9 @@ class _AboutCard extends StatelessWidget {
       child: const ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(Icons.android_rounded, color: AppColors.mint),
-        title: Text('Поколение VPN 0.9.0'),
+        title: Text('Поколение VPN 0.9.1'),
         subtitle: Text(
-          'Android-клиент с автогенерацией WARP, живым URL Test, '
+          'Android-клиент с WARP, реальной проверкой VPN-подключения, '
           'автообновлением каталогов и split tunneling.',
         ),
       ),

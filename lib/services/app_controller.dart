@@ -384,8 +384,8 @@ class AppController extends ChangeNotifier {
     if (connected || busy) {
       if (announce) {
         message =
-            'URL Test не подключает и не отключает VPN. '
-            'Сначала вручную отключи активное соединение.';
+            'Для проверки сервер временно подключается. '
+            'Сначала вручную отключи активное VPN-соединение.';
         notifyListeners();
       }
       return false;
@@ -393,7 +393,9 @@ class AppController extends ChangeNotifier {
 
     final current = _currentNode(node.id) ?? node;
     _replaceNode(current.copyWith(health: NodeHealth.checking));
-    final timeout = Duration(milliseconds: settings.urlTestTimeoutMs);
+    final timeout = Duration(
+      milliseconds: settings.urlTestTimeoutMs.clamp(12000, 60000).toInt(),
+    );
     try {
       {
         final baseAvailable =
@@ -415,7 +417,7 @@ class AppController extends ChangeNotifier {
           await storage.saveNodes(nodes);
           if (announce) {
             message =
-                'Нет обычного интернета. URL Test отменён, сервер не удалён.';
+                'Нет обычного интернета. Проверка отменена, сервер не удалён.';
             notifyListeners();
           }
           return false;
@@ -432,13 +434,13 @@ class AppController extends ChangeNotifier {
           lastChecked: DateTime.now(),
           metadata: <String, dynamic>{
             ...current.metadata,
-            'probe_detail': 'Ошибка механизма URL Test: $error',
+            'probe_detail': 'Ошибка проверки подключения: $error',
           },
         ),
       );
       await storage.saveNodes(nodes);
       if (announce) {
-        message = 'URL Test не завершён, сервер не удалён: $error';
+        message = 'Проверка не завершена, сервер не удалён: $error';
         notifyListeners();
       }
       return false;
@@ -487,7 +489,8 @@ class AppController extends ChangeNotifier {
       );
       await storage.saveNodes(nodes);
       if (announce) {
-        message = 'URL Test: ${result.latencyMs} мс. VPN не подключался.';
+        message =
+            'Подключение проверено: ${result.latencyMs} мс. HTTPS через VPN прошёл.';
         notifyListeners();
       }
       return true;
@@ -545,7 +548,7 @@ class AppController extends ChangeNotifier {
     }
     if (announce) {
       message = remove
-          ? 'Сервер удалён после $failures подтверждённых провалов URL Test.'
+          ? 'Сервер удалён после $failures подтверждённых провалов подключения.'
           : 'Сервер не ответил: попытка $failures из '
                 '${settings.removeAfterFailures}. Он пока сохранён.';
       notifyListeners();
@@ -574,7 +577,6 @@ class AppController extends ChangeNotifier {
       warpNodes.take(20).toList(),
       label: 'WARP-конфигов',
       showSummary: true,
-      forceSequential: true,
     );
   }
 
@@ -582,7 +584,6 @@ class AppController extends ChangeNotifier {
     List<VpnNode> queue, {
     required String label,
     required bool showSummary,
-    bool forceSequential = false,
   }) async {
     if (testingAll || queue.isEmpty) return;
     if (connected || busy) {
@@ -642,13 +643,9 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      final workerCount = forceSequential
-          ? 1
-          : settings.urlTestConcurrency
-                .clamp(1, 4)
-                .toInt()
-                .clamp(1, queue.length)
-                .toInt();
+      // Android permits only one owner of VpnService. Full-tunnel checks must
+      // never overlap, otherwise one probe disconnects another and lies.
+      const workerCount = 1;
       await Future.wait(
         List<Future<void>>.generate(workerCount, (_) => worker()),
       );
@@ -659,11 +656,11 @@ class AppController extends ChangeNotifier {
       await storage.saveNodes(nodes);
       if (showSummary) {
         message =
-            'URL Test завершён: $working доступны, $unavailable не '
+            'Проверка завершена: $working доступны, $unavailable не '
             'ответили, $removed удалено из ${queue.length} $label.';
       }
     } catch (error) {
-      if (showSummary) message = 'URL Test завершился с ошибкой: $error';
+      if (showSummary) message = 'Проверка завершилась с ошибкой: $error';
     } finally {
       testingAll = false;
       notifyListeners();
@@ -925,7 +922,7 @@ class AppController extends ChangeNotifier {
     try {
       const typeGroup = XTypeGroup(
         label: 'WireGuard / AmneziaWG',
-        extensions: <String>['conf', 'txt'],
+        extensions: <String>['conf', 'txt', 'wg', 'awg'],
       );
       final file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
       if (file == null) return 0;

@@ -149,17 +149,22 @@ class _ImportCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Автоматический режим регистрирует WARP напрямую; приватный ключ '
-            'создаётся локально. Сайты-генераторы оставлены как резерв.',
+            'Источник Portal WG добавлен напрямую: сгенерируй конфиг в окне '
+            'и приложение перехватит его для импорта.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: busy ? null : controller.generateWarpPool,
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: const Text('Сгенерировать WARP автоматически'),
+              onPressed: busy
+                  ? null
+                  : () => controller.importWarpFromWebsite(
+                      url: WarpGenBridge.portalWg,
+                      sourceName: 'Portal WG',
+                    ),
+              icon: const Icon(Icons.bolt_rounded),
+              label: const Text('Получить WARP как в Portal WG'),
             ),
           ),
           const SizedBox(height: 9),
@@ -180,9 +185,18 @@ class _ImportCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
+              onPressed: busy ? null : controller.generateWarpPool,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Прямая автогенерация (экспериментально)'),
+            ),
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
               onPressed: busy ? null : controller.importWarpFile,
               icon: const Icon(Icons.file_open_rounded),
-              label: const Text('Импортировать один .conf'),
+              label: const Text('Импортировать .conf / .wg / .awg'),
             ),
           ),
           if (busy) ...<Widget>[

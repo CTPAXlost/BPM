@@ -19,17 +19,15 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertNotIn("windows:", workflow)
         self.assertNotIn("flutter build windows", workflow)
 
-    def test_regular_url_test_is_isolated_and_warp_test_is_real(self) -> None:
+    def test_every_server_test_uses_a_real_temporary_tunnel(self) -> None:
         core = self.read("lib/core/android_vpn_core.dart")
         block = core.split("Future<ProbeResult> test(", 1)[1].split(
             "Future<ProbeResult> validateConnected", 1
         )[0]
-        self.assertIn("pingProfile(profile: parsed.profile)", block)
-        self.assertNotIn("requestVpnPermission", block)
-        self.assertNotIn("await _vpn.start()", block)
-        self.assertIn("await _awg.start", block)
-        self.assertIn("probeVpnNetwork", block)
-        self.assertIn("await _awg.stop", block)
+        self.assertNotIn("pingProfile", block)
+        self.assertIn("await connect(node, settings)", block)
+        self.assertIn("await validateConnected(remaining)", block)
+        self.assertIn("await disconnect()", block)
 
     def test_connect_is_explicit_and_separate(self) -> None:
         controller = self.read("lib/services/app_controller.dart")
@@ -76,9 +74,9 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("NavigationBar", shell)
         self.assertNotIn("NavigationRail", shell)
 
-    def test_version_is_090(self) -> None:
-        self.assertIn("version: 0.9.0+90", self.read("pubspec.yaml"))
-        self.assertIn("Поколение VPN 0.9.0", self.read("lib/screens/settings_screen.dart"))
+    def test_version_is_091(self) -> None:
+        self.assertIn("version: 0.9.1+91", self.read("pubspec.yaml"))
+        self.assertIn("Поколение VPN 0.9.1", self.read("lib/screens/settings_screen.dart"))
 
     def test_analyzer_keeps_compile_warnings_fatal_without_style_noise(self) -> None:
         pubspec = self.read("pubspec.yaml")

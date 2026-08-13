@@ -9,8 +9,8 @@ class AppSettings {
     this.refreshOnResume = true,
     this.autoTestAfterRefresh = true,
     this.maxPerProtocol = 50,
-    this.urlTestTimeoutMs = 6000,
-    this.urlTestConcurrency = 4,
+    this.urlTestTimeoutMs = 15000,
+    this.urlTestConcurrency = 1,
     this.autoRemoveUnavailable = true,
     this.removeAfterFailures = 3,
     this.quarantineHours = 24,
@@ -43,12 +43,11 @@ class AppSettings {
       maxPerProtocol: readInt('max_per_protocol', 50).clamp(10, 250).toInt(),
       urlTestTimeoutMs: readInt(
         'url_test_timeout_ms',
-        readInt('test_timeout_ms', 6000),
-      ).clamp(2000, 30000).toInt(),
-      urlTestConcurrency: readInt(
-        'url_test_concurrency',
-        4,
-      ).clamp(1, 4).toInt(),
+        readInt('test_timeout_ms', 15000),
+      ).clamp(12000, 60000).toInt(),
+      // Retained in storage for backward compatibility. Real Android VPN
+      // checks are always sequential because VpnService has a single owner.
+      urlTestConcurrency: 1,
       autoRemoveUnavailable: json['auto_remove_unavailable'] != false,
       removeAfterFailures: readInt(
         'remove_after_failures',

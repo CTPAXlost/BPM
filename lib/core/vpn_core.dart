@@ -37,7 +37,7 @@ class ProbeResult {
 
   const ProbeResult.urlTestSuccess(
     int latencyMs, {
-    String detail = 'Профиль ответил на URL Test без запуска VPN.',
+    String detail = 'Подключение и HTTPS через временный VPN подтверждены.',
   }) : this._(
          success: true,
          definitive: true,
@@ -93,15 +93,15 @@ abstract class VpnCore {
   Future<void> connect(VpnNode node, AppSettings settings);
   Future<void> disconnect();
 
-  /// Performs a profile reachability/latency test without requesting Android
-  /// VPN permission and without starting a system VPN tunnel.
+  /// Temporarily connects the profile and verifies HTTPS through Android's
+  /// VPN network. A server is successful only when user traffic can pass.
   Future<ProbeResult> test(
     VpnNode node,
     Duration timeout, {
     AppSettings settings = const AppSettings(),
   });
 
-  /// Validates the tunnel only after the user explicitly pressed Connect.
+  /// Validates user traffic through the currently connected tunnel.
   Future<ProbeResult> validateConnected(Duration timeout);
 
   Future<void> dispose();
