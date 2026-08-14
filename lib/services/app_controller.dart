@@ -15,18 +15,21 @@ import '../utils/node_parser.dart';
 import 'catalog_service.dart';
 import 'latency_service.dart';
 import 'storage_service.dart';
+import 'warp_generator_service.dart';
 
 class AppController extends ChangeNotifier {
   AppController()
     : core = createVpnCore(),
       storage = StorageService(),
-      catalog = CatalogService() {
+      catalog = CatalogService(),
+      warpGenerator = WarpGeneratorService() {
     latency = LatencyService(core);
   }
 
   final VpnCore core;
   final StorageService storage;
   final CatalogService catalog;
+  final WarpGeneratorService warpGenerator;
   late final LatencyService latency;
 
   AppSettings settings = const AppSettings();
@@ -42,17 +45,40 @@ class AppController extends ChangeNotifier {
   bool loading = true;
   bool refreshing = false;
   bool testingAll = false;
+  bool probeInProgress = false;
   bool importingWarp = false;
+  bool generatingWarp = false;
   int testingCompleted = 0;
   int testingTotal = 0;
   List<String> _testingOrder = const <String>[];
   String? message;
   DateTime? lastRefresh;
+  DateTime? lastWarpGeneration;
 
   final Map<String, DateTime> _quarantinedNodes = <String, DateTime>{};
   StreamSubscription<VpnCoreState>? _stateSub;
   StreamSubscription<TrafficSnapshot>? _trafficSub;
   Timer? _autoRefreshTimer;
+  Timer? _warpCooldownTimer;
+
+  static const warpGenerationCooldown = Duration(hours: 1);
+
+  Duration get warpGenerationRemaining {
+    final generated = lastWarpGeneration;
+    if (generated == null) return Duration.zero;
+    final remaining = generated
+        .add(warpGenerationCooldown)
+        .difference(DateTime.now());
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  bool get canGenerateWarp =>
+      warpGenerationRemaining == Duration.zero &&
+      !generatingWarp &&
+      !testingAll &&
+      !probeInProgress &&
+      !connected &&
+      !busy;
 
   VpnNode? get selectedNode {
     for (final node in nodes) {
@@ -158,6 +184,7 @@ class AppController extends ChangeNotifier {
       nodes = storedNodes
           .where((node) => !_isQuarantined(node.id))
           .where((node) => !_isRetiredGeneratedWarp(node))
+          .where((node) => !_isRetiredBundledWarp(node))
           .toList();
       if (nodes.length != storedNodes.length) {
         await storage.saveNodes(nodes);
@@ -168,6 +195,7 @@ class AppController extends ChangeNotifier {
       await storage.saveSources(sources);
       selectedNodeId = await storage.loadSelectedNodeId();
       lastRefresh = await storage.loadLastRefresh();
+      lastWarpGeneration = await storage.loadLastWarpGeneration();
       if (nodes.isEmpty) {
         nodes = await catalog.loadBundledCatalog();
       }
@@ -196,6 +224,10 @@ class AppController extends ChangeNotifier {
         notifyListeners();
       });
       _configureTimer();
+      _warpCooldownTimer = Timer.periodic(
+        const Duration(minutes: 1),
+        (_) => notifyListeners(),
+      );
       if (settings.autoRefresh) {
         unawaited(refreshCatalog(silent: true));
       }
@@ -213,6 +245,11 @@ class AppController extends ChangeNotifier {
     return node.metadata['auto_generated'] == true ||
         source.contains('автоматический warp') ||
         source.contains('endpoint rotation');
+  }
+
+  bool _isRetiredBundledWarp(VpnNode node) {
+    return node.protocol == VpnProtocol.warp &&
+        node.name.trim().toUpperCase() == 'WARP STR 6230';
   }
 
   void selectProtocol(VpnProtocol? protocol) {
@@ -267,7 +304,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> connectNode(VpnNode node) async {
-    if (busy) return;
+    if (busy || testingAll || probeInProgress) return;
     message = null;
     notifyListeners();
     try {
@@ -291,6 +328,11 @@ class AppController extends ChangeNotifier {
     notifyListeners();
     if (connected || busy) {
       await core.disconnect();
+      return;
+    }
+    if (testingAll || probeInProgress) {
+      message = 'Дождись завершения проверки сервера.';
+      notifyListeners();
       return;
     }
     final node = settings.autoSelectBest
@@ -404,18 +446,21 @@ class AppController extends ChangeNotifier {
     VpnNode node, {
     bool announce = true,
     bool? baseInternetAvailable,
+    bool queued = false,
   }) async {
     if (!nodes.any((item) => item.id == node.id)) return false;
-    if (connected || busy) {
+    if (connected || busy || probeInProgress || (testingAll && !queued)) {
       if (announce) {
         message =
-            'Для проверки сервер временно подключается. '
-            'Сначала вручную отключи активное VPN-соединение.';
+            connected || busy
+            ? 'Для проверки сначала отключи активное VPN-соединение.'
+            : 'Проверка уже выполняется. Дождись её завершения.';
         notifyListeners();
       }
       return false;
     }
 
+    probeInProgress = true;
     final current = _currentNode(node.id) ?? node;
     _replaceNode(current.copyWith(health: NodeHealth.checking));
     final timeout = Duration(
@@ -469,6 +514,9 @@ class AppController extends ChangeNotifier {
         notifyListeners();
       }
       return false;
+    } finally {
+      probeInProgress = false;
+      notifyListeners();
     }
   }
 
@@ -610,7 +658,7 @@ class AppController extends ChangeNotifier {
     required String label,
     required bool showSummary,
   }) async {
-    if (testingAll || queue.isEmpty) return;
+    if (testingAll || probeInProgress || queue.isEmpty) return;
     if (connected || busy) {
       if (showSummary) {
         message =
@@ -657,6 +705,7 @@ class AppController extends ChangeNotifier {
           current,
           announce: false,
           baseInternetAvailable: true,
+          queued: true,
         );
         if (ok) {
           working += 1;
@@ -698,6 +747,13 @@ class AppController extends ChangeNotifier {
 
   Future<void> refreshCatalog({bool silent = false}) async {
     if (refreshing) return;
+    if (testingAll || probeInProgress) {
+      if (!silent) {
+        message = 'Обновление начнётся после завершения проверки.';
+        notifyListeners();
+      }
+      return;
+    }
     if (silent && connected && settings.pauseRefreshWhileConnected) return;
     refreshing = true;
     if (!silent) message = null;
@@ -865,7 +921,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<int> importWarpFile() async {
-    if (importingWarp) return 0;
+    if (importingWarp || generatingWarp || testingAll || probeInProgress) {
+      return 0;
+    }
     importingWarp = true;
     message = null;
     notifyListeners();
@@ -885,6 +943,50 @@ class AppController extends ChangeNotifier {
       return 0;
     } finally {
       importingWarp = false;
+      notifyListeners();
+    }
+  }
+
+  Future<int> generateOneWarp() async {
+    if (!canGenerateWarp) {
+      final remaining = warpGenerationRemaining;
+      if (remaining > Duration.zero) {
+        final minutes = (remaining.inSeconds / 60).ceil();
+        message = 'Следующий WARP можно создать через $minutes мин.';
+        notifyListeners();
+      }
+      return 0;
+    }
+    generatingWarp = true;
+    message = null;
+    notifyListeners();
+    try {
+      final raw = await warpGenerator.generateOne();
+      final generatedAt = DateTime.now();
+      final parsed = _parseOneWarp(raw, 'Открытый WARP Generator');
+      final day = generatedAt.day.toString().padLeft(2, '0');
+      final month = generatedAt.month.toString().padLeft(2, '0');
+      final hour = generatedAt.hour.toString().padLeft(2, '0');
+      final minute = generatedAt.minute.toString().padLeft(2, '0');
+      final node = parsed.copyWith(
+        name: 'WARP $day.$month $hour:$minute',
+        metadata: <String, dynamic>{
+          ...parsed.metadata,
+          'generated_warp_v2': true,
+          'generated_at': generatedAt.toIso8601String(),
+        },
+      );
+      await _storeWarp(node);
+      lastWarpGeneration = generatedAt;
+      await storage.saveLastWarpGeneration(generatedAt);
+      message =
+          'Создан один WARP-конфиг. Следующая генерация доступна через час.';
+      return 1;
+    } catch (error) {
+      message = 'Не удалось создать WARP: $error';
+      return 0;
+    } finally {
+      generatingWarp = false;
       notifyListeners();
     }
   }
@@ -1082,11 +1184,13 @@ class AppController extends ChangeNotifier {
   @override
   void dispose() {
     _autoRefreshTimer?.cancel();
+    _warpCooldownTimer?.cancel();
     _stateSub?.cancel();
     _trafficSub?.cancel();
     latency.dispose();
     unawaited(core.dispose());
     catalog.dispose();
+    warpGenerator.dispose();
     super.dispose();
   }
 }

@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../models/app_settings.dart';
+import '../services/app_controller.dart';
 import '../theme/app_theme.dart';
 
 class AuroraBackground extends StatelessWidget {
@@ -11,10 +14,22 @@ class AuroraBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visualTheme = context.select<AppController, VisualTheme>(
+      (controller) => controller.settings.visualTheme,
+    );
+    final backgroundAsset = visualTheme == VisualTheme.nightmare
+        ? 'assets/images/theme_nightmare.webp'
+        : 'assets/images/theme_symbiosis.webp';
     return Stack(
       fit: StackFit.expand,
       children: <Widget>[
         const ColoredBox(color: AppColors.background),
+        Image.asset(backgroundAsset, fit: BoxFit.cover),
+        ColoredBox(
+          color: visualTheme == VisualTheme.nightmare
+              ? const Color(0xB807090E)
+              : const Color(0xB208101A),
+        ),
         IgnorePointer(child: CustomPaint(painter: _AuroraPainter())),
         child,
       ],

@@ -340,6 +340,15 @@ private object AwgRuntime {
 
     @Synchronized
     fun lastHandshake(): Long = backend?.getLastHandshake(tunnel) ?: -3L
+
+    @Synchronized
+    fun statistics(): Map<String, Long> {
+        val stats = backend?.getStatistics(tunnel)
+        return mapOf(
+            "received" to (stats?.totalRx() ?: 0L),
+            "sent" to (stats?.totalTx() ?: 0L),
+        )
+    }
 }
 
 class MainActivity : FlutterActivity() {
@@ -553,6 +562,20 @@ class MainActivity : FlutterActivity() {
                     runOnUiThread {
                         result.error(
                             "AWG_HANDSHAKE",
+                            error.message ?: error.javaClass.simpleName,
+                            Log.getStackTraceString(error),
+                        )
+                    }
+                }
+            }
+            "statistics" -> executor.execute {
+                try {
+                    val value = AwgRuntime.statistics()
+                    runOnUiThread { result.success(value) }
+                } catch (error: Throwable) {
+                    runOnUiThread {
+                        result.error(
+                            "AWG_STATISTICS",
                             error.message ?: error.javaClass.simpleName,
                             Log.getStackTraceString(error),
                         )

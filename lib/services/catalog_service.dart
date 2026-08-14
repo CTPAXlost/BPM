@@ -25,7 +25,7 @@ class CatalogRefreshResult {
 class CatalogService {
   CatalogService({http.Client? client}) : _client = client ?? http.Client();
 
-  static const _userAgent = 'Pokolenie-VPN/0.9.2';
+  static const _userAgent = 'Pokolenie-VPN/0.9.3';
   final http.Client _client;
 
   Future<List<SourceDefinition>> loadBundledSources() async {
@@ -47,11 +47,10 @@ class CatalogService {
   }
 
   Future<List<VpnNode>> loadBundledWarpConfigs() async {
-    const profiles = <(String, String)>[
-      ('assets/warp/WARP_STR8605.conf', 'WARP STR 8605'),
-      ('assets/warp/WARP_STR4470.conf', 'WARP STR 4470'),
-      ('assets/warp/WARP_STR6230.conf', 'WARP STR 6230'),
-    ];
+      const profiles = <(String, String)>[
+        ('assets/warp/WARP_STR8605.conf', 'WARP STR 8605'),
+        ('assets/warp/WARP_STR4470.conf', 'WARP STR 4470'),
+      ];
     final result = <VpnNode>[];
     for (final profile in profiles) {
       final raw = await rootBundle.loadString(profile.$1);

@@ -37,8 +37,12 @@ class ServersScreen extends StatelessWidget {
                               node: node,
                               selected: controller.selectedNodeId == node.id,
                               onSelect: () => controller.selectNode(node),
-                              onConnect: () => controller.connectNode(node),
-                              onTest: () => controller.testNode(node),
+                                onConnect: controller.testingAll || controller.probeInProgress
+                                    ? null
+                                    : () => controller.connectNode(node),
+                                onTest: controller.testingAll || controller.probeInProgress
+                                    ? null
+                                    : () => controller.testNode(node),
                               onFavorite: () => controller.toggleFavorite(node),
                               onDelete: () => _confirmDelete(
                                 context,
@@ -114,7 +118,9 @@ class _Header extends StatelessWidget {
                 ),
               ),
               FilledButton.tonalIcon(
-                onPressed: controller.testingAll || controller.connected
+                onPressed: controller.testingAll ||
+                        controller.probeInProgress ||
+                        controller.connected
                     ? null
                     : controller.testVisibleNodes,
                 icon: const Icon(Icons.speed_rounded),

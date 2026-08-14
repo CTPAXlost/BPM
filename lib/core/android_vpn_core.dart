@@ -24,6 +24,12 @@ class AndroidVpnCore implements VpnCore {
   bool _singboxReady = false;
   bool _usingAwg = false;
   bool _silentProbe = false;
+  bool _probeInProgress = false;
+  Timer? _awgStatsTimer;
+  bool _awgStatsReadInProgress = false;
+  int _lastAwgRx = 0;
+  int _lastAwgTx = 0;
+  DateTime? _lastAwgSample;
   Object? _singboxInitError;
 
   @override
@@ -119,6 +125,7 @@ class AndroidVpnCore implements VpnCore {
           name: 'pokolenie-warp',
         );
         _emit(VpnCoreState.connected);
+        if (!_silentProbe) _startAwgStatistics();
         return;
       }
 
@@ -190,6 +197,7 @@ class AndroidVpnCore implements VpnCore {
   Future<void> disconnect() async {
     if (_state == VpnCoreState.disconnected) return;
     _emit(VpnCoreState.disconnecting);
+    _stopAwgStatistics();
     try {
       if (_usingAwg) {
         await _awg.stop();
@@ -215,9 +223,9 @@ class AndroidVpnCore implements VpnCore {
         definitive: false,
       );
     }
-    if (_state != VpnCoreState.disconnected) {
+    if (_probeInProgress || _state != VpnCoreState.disconnected) {
       return const ProbeResult.failure(
-        'Отключи активный VPN перед проверкой подключения.',
+        'Другая VPN-проверка уже выполняется. Дождись её завершения.',
         definitive: false,
       );
     }
@@ -239,6 +247,7 @@ class AndroidVpnCore implements VpnCore {
     }
 
     final started = DateTime.now();
+    _probeInProgress = true;
     _silentProbe = true;
     try {
       await connect(node, settings);
@@ -286,7 +295,54 @@ class AndroidVpnCore implements VpnCore {
         // Best-effort cleanup after an isolated full-tunnel probe.
       }
       _silentProbe = false;
+      _probeInProgress = false;
     }
+  }
+
+  void _startAwgStatistics() {
+    _stopAwgStatistics();
+    _lastAwgSample = DateTime.now();
+    _awgStatsTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      if (!_usingAwg ||
+          _state != VpnCoreState.connected ||
+          _awgStatsReadInProgress) {
+        return;
+      }
+      _awgStatsReadInProgress = true;
+      try {
+        final stats = await _awg.statistics();
+        final now = DateTime.now();
+        final elapsedMs = now.difference(_lastAwgSample ?? now).inMilliseconds;
+        final rxDelta = (stats.received - _lastAwgRx).clamp(0, 1 << 62);
+        final txDelta = (stats.sent - _lastAwgTx).clamp(0, 1 << 62);
+        _lastAwgRx = stats.received;
+        _lastAwgTx = stats.sent;
+        _lastAwgSample = now;
+        if (!_traffic.isClosed) {
+          _traffic.add(
+            TrafficSnapshot(
+              downloadSpeed: elapsedMs <= 0 ? 0 : (rxDelta * 1000 ~/ elapsedMs),
+              uploadSpeed: elapsedMs <= 0 ? 0 : (txDelta * 1000 ~/ elapsedMs),
+              totalDownloaded: stats.received,
+              totalUploaded: stats.sent,
+            ),
+          );
+        }
+      } catch (_) {
+        // A missed native sample must never interrupt an active tunnel.
+      } finally {
+        _awgStatsReadInProgress = false;
+      }
+    });
+  }
+
+  void _stopAwgStatistics() {
+    _awgStatsTimer?.cancel();
+    _awgStatsTimer = null;
+    _awgStatsReadInProgress = false;
+    _lastAwgRx = 0;
+    _lastAwgTx = 0;
+    _lastAwgSample = null;
   }
 
   @override
@@ -382,6 +438,7 @@ class AndroidVpnCore implements VpnCore {
 
   @override
   Future<void> dispose() async {
+    _stopAwgStatistics();
     await _stateSub?.cancel();
     await _statsSub?.cancel();
     try {

@@ -31,6 +31,19 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _Section(
+                  title: 'Оформление',
+                  icon: Icons.palette_outlined,
+                  children: <Widget>[
+                    _VisualThemeSetting(
+                      value: settings.visualTheme,
+                      onChanged: (value) => controller.updateSettings(
+                        settings.copyWith(visualTheme: value),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _Section(
                   title: 'Каталог и автообновление',
                   icon: Icons.sync_rounded,
                   children: <Widget>[
@@ -392,6 +405,37 @@ class _SplitModeSetting extends StatelessWidget {
   }
 }
 
+class _VisualThemeSetting extends StatelessWidget {
+  const _VisualThemeSetting({required this.value, required this.onChanged});
+
+  final VisualTheme value;
+  final ValueChanged<VisualTheme> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: SegmentedButton<VisualTheme>(
+        segments: const <ButtonSegment<VisualTheme>>[
+          ButtonSegment<VisualTheme>(
+            value: VisualTheme.nightmare,
+            icon: Icon(Icons.local_fire_department_outlined),
+            label: Text('Кошмар'),
+          ),
+          ButtonSegment<VisualTheme>(
+            value: VisualTheme.symbiosis,
+            icon: Icon(Icons.bolt_outlined),
+            label: Text('Симбиоз'),
+          ),
+        ],
+        selected: <VisualTheme>{value},
+        onSelectionChanged: (values) => onChanged(values.first),
+        showSelectedIcon: true,
+      ),
+    );
+  }
+}
+
 class _Section extends StatelessWidget {
   const _Section({
     required this.title,
@@ -540,7 +584,7 @@ class _AboutCard extends StatelessWidget {
       child: const ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(Icons.android_rounded, color: AppColors.mint),
-        title: Text('Поколение VPN 0.9.2'),
+        title: Text('Поколение VPN 0.9.3'),
         subtitle: Text(
           'Android-клиент с WARP, реальной проверкой VPN-подключения, '
           'автообновлением каталогов и split tunneling.',

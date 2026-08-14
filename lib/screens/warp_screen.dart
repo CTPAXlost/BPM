@@ -27,8 +27,8 @@ class WarpScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 const Text(
-                  'Загружай готовые WireGuard/AmneziaWG-конфиги. Проверка '
-                  'кратко поднимает туннель и подтверждает HTTPS через него.',
+                  'Создай один свежий WARP или загрузи WireGuard/AmneziaWG-файл. '
+                  'Проверка подтверждает реальный HTTPS через туннель.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 16),
@@ -37,7 +37,9 @@ class WarpScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: controller.testingAll || nodes.isEmpty
+                    onPressed: controller.testingAll ||
+                            controller.probeInProgress ||
+                            nodes.isEmpty
                         ? null
                         : controller.testAllWarpNodes,
                     icon: const Icon(Icons.speed_rounded),
@@ -79,8 +81,12 @@ class WarpScreen extends StatelessWidget {
                       selected: controller.selectedNodeId == node.id,
                       testLabel: 'Проверить WARP',
                       onSelect: () => controller.selectNode(node),
-                      onConnect: () => controller.connectNode(node),
-                      onTest: () => controller.testNode(node),
+                      onConnect: controller.testingAll || controller.probeInProgress
+                          ? null
+                          : () => controller.connectNode(node),
+                      onTest: controller.testingAll || controller.probeInProgress
+                          ? null
+                          : () => controller.testNode(node),
                       onFavorite: () => controller.toggleFavorite(node),
                       onDelete: () => _confirmDelete(context, controller, node),
                     ),
@@ -125,7 +131,9 @@ class _ImportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final busy = controller.importingWarp;
+    final busy = controller.importingWarp || controller.generatingWarp;
+    final remaining = controller.warpGenerationRemaining;
+    final remainingMinutes = (remaining.inSeconds / 60).ceil();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -148,15 +156,43 @@ class _ImportCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Выбери готовый файл конфигурации. Android-проводники часто не '
-            'сообщают расширение файла, поэтому фильтр форматов отключён.',
+            'Генератор создаёт ровно один конфиг и блокируется на час. '
+            'Используются открытые зеркала WARP Generator; готовый конфиг '
+            'сразу сохраняется в приложении.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: busy ? null : controller.importWarpFile,
+              onPressed: controller.canGenerateWarp
+                  ? controller.generateOneWarp
+                  : null,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: Text(
+                controller.generatingWarp
+                    ? 'Создаю один WARP…'
+                    : remaining > Duration.zero
+                    ? 'Следующий через $remainingMinutes мин.'
+                    : 'Создать один WARP',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 4),
+          const Text(
+            'Или выбери готовый файл. Фильтр расширений отключён, потому что '
+            'Android-проводники часто не сообщают формат файла.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: busy || controller.testingAll || controller.probeInProgress
+                  ? null
+                  : controller.importWarpFile,
               icon: const Icon(Icons.file_open_rounded),
               label: const Text('Выбрать файл конфигурации'),
             ),

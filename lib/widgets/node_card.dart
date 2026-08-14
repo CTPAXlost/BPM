@@ -19,8 +19,8 @@ class NodeCard extends StatelessWidget {
   final VpnNode node;
   final bool selected;
   final VoidCallback onSelect;
-  final VoidCallback onConnect;
-  final VoidCallback onTest;
+  final VoidCallback? onConnect;
+  final VoidCallback? onTest;
   final VoidCallback onFavorite;
   final VoidCallback onDelete;
   final String testLabel;

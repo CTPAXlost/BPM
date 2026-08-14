@@ -14,4 +14,4 @@ WARP/WireGuard/AmneziaWG profiles use the official `amnezia-vpn/amneziawg-androi
 
 ## External WARP generators
 
-WarpGen.net and warp-gen.github.io are external websites opened only after an explicit user action. They are not bundled with or operated by this project.
+Single-profile generation uses HTTPS mirrors of the open-source `nellimonix/warp-config-generator-vercel` project after an explicit user action. The generator is MIT licensed and is not operated by Pokolenie VPN. Source: https://github.com/nellimonix/warp-config-generator-vercel

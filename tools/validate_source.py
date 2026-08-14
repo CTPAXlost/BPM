@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.9.2"
-EXPECTED_BUILD = "92"
+EXPECTED_VERSION = "0.9.3"
+EXPECTED_BUILD = "93"
 
 
 def read(relative: str) -> str:
@@ -31,6 +31,7 @@ def validate_required(errors: list[str]) -> None:
         "lib/services/catalog_service.dart",
         "lib/services/latency_service.dart",
         "lib/services/storage_service.dart",
+        "lib/services/warp_generator_service.dart",
         "lib/screens/home_screen.dart",
         "lib/screens/servers_screen.dart",
         "lib/screens/warp_screen.dart",
@@ -43,7 +44,8 @@ def validate_required(errors: list[str]) -> None:
         "catalog/public_catalog.json",
         "assets/warp/WARP_STR8605.conf",
         "assets/warp/WARP_STR4470.conf",
-        "assets/warp/WARP_STR6230.conf",
+        "assets/images/theme_nightmare.webp",
+        "assets/images/theme_symbiosis.webp",
     )
     for relative in required:
         check((ROOT / relative).is_file(), f"Missing required file: {relative}", errors)
@@ -69,7 +71,7 @@ def validate_version(errors: list[str]) -> None:
     pubspec = read("pubspec.yaml")
     check(
         f"version: {EXPECTED_VERSION}+{EXPECTED_BUILD}" in pubspec,
-        "pubspec version is not 0.9.2+92",
+        "pubspec version is not 0.9.3+93",
         errors,
     )
     check("window_manager" not in pubspec, "Desktop dependency remains", errors)
@@ -98,6 +100,11 @@ def validate_architecture(errors: list[str]) -> None:
     check("url_test_failures" in controller, "Repeated failure tracking is missing", errors)
     check("removeAfterFailures" in controller, "Removal threshold is missing", errors)
     check("hasBaseInternet" in controller, "Base internet guard is missing", errors)
+    check("probeInProgress" in controller, "Controller probe mutex is missing", errors)
+    check("_probeInProgress" in core, "Core probe mutex is missing", errors)
+    check("_startAwgStatistics" in core, "Native WARP traffic polling is missing", errors)
+    check("generateOneWarp" in controller, "Single WARP generation is missing", errors)
+    check("warpGenerationCooldown" in controller, "WARP generation cooldown is missing", errors)
     check("core.test(node, timeout" in latency, "Latency service does not delegate real probes", errors)
     check("generateWarpPool" not in controller, "Retired WARP generator remains", errors)
     check("importWarpFromWebsite" not in controller, "Retired WARP website import remains", errors)
@@ -249,7 +256,7 @@ def main() -> None:
         for error in errors:
             print(f"ERROR: {error}")
         raise SystemExit(1)
-    print("Pokolenie VPN 0.9.2 Android source validation: OK")
+    print("Pokolenie VPN 0.9.3 Android source validation: OK")
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ class StorageService {
   static const _selectedKey = 'selected_node_v2';
   static const _lastRefreshKey = 'last_refresh_v2';
   static const _quarantineKey = 'quarantined_nodes_v1';
+  static const _lastWarpGenerationKey = 'last_warp_generation_v1';
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
@@ -78,6 +79,18 @@ class StorageService {
 
   Future<void> saveLastRefresh(DateTime value) async {
     await (await _prefs).setString(_lastRefreshKey, value.toIso8601String());
+  }
+
+  Future<DateTime?> loadLastWarpGeneration() async {
+    final raw = (await _prefs).getString(_lastWarpGenerationKey);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> saveLastWarpGeneration(DateTime value) async {
+    await (await _prefs).setString(
+      _lastWarpGenerationKey,
+      value.toIso8601String(),
+    );
   }
 
   Future<Map<String, DateTime>> loadQuarantinedNodes() async {

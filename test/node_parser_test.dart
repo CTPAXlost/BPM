@@ -222,7 +222,6 @@ void main() {
     for (final name in <String>[
       'WARP_STR8605.conf',
       'WARP_STR4470.conf',
-      'WARP_STR6230.conf',
     ]) {
       final raw = File('assets/warp/$name').readAsStringSync();
       final node = NodeParser.parse(raw, source: 'Bundled WARP');

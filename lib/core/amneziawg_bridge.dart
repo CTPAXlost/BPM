@@ -45,6 +45,20 @@ class VpnBoundProbe {
   final String detail;
 }
 
+class AwgTrafficStats {
+  const AwgTrafficStats({required this.received, required this.sent});
+
+  factory AwgTrafficStats.fromMap(Map<Object?, Object?> raw) {
+    return AwgTrafficStats(
+      received: int.tryParse(raw['received']?.toString() ?? '') ?? 0,
+      sent: int.tryParse(raw['sent']?.toString() ?? '') ?? 0,
+    );
+  }
+
+  final int received;
+  final int sent;
+}
+
 class AmneziaWgBridge {
   static const MethodChannel _channel = MethodChannel('app.pokolenie/awg');
 
@@ -78,6 +92,12 @@ class AmneziaWgBridge {
   Future<int> lastHandshakeSeconds() async {
     if (!supported) return -3;
     return await _channel.invokeMethod<int>('lastHandshake') ?? -2;
+  }
+
+  Future<AwgTrafficStats> statistics() async {
+    if (!supported) return const AwgTrafficStats(received: 0, sent: 0);
+    final raw = await _channel.invokeMapMethod<Object?, Object?>('statistics');
+    return AwgTrafficStats.fromMap(raw ?? const <Object?, Object?>{});
   }
 
   Future<AwgNetworkStatus> networkStatus() async {

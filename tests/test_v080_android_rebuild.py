@@ -54,8 +54,29 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertNotIn("importWarpFromWebsite", controller)
         self.assertIn("probeVpnNetwork", core)
         self.assertNotIn("latencyMs: 1", core)
-        for name in ("WARP_STR8605.conf", "WARP_STR4470.conf", "WARP_STR6230.conf"):
+        for name in ("WARP_STR8605.conf", "WARP_STR4470.conf"):
             self.assertTrue((ROOT / "assets" / "warp" / name).is_file())
+        self.assertFalse((ROOT / "assets" / "warp" / "WARP_STR6230.conf").exists())
+
+    def test_probe_mutex_warp_stats_generator_and_themes_exist(self) -> None:
+        controller = self.read("lib/services/app_controller.dart")
+        core = self.read("lib/core/android_vpn_core.dart")
+        bridge = self.read("lib/core/amneziawg_bridge.dart")
+        patcher = self.read("tools/prepare_android.py")
+        generator = self.read("lib/services/warp_generator_service.dart")
+        settings = self.read("lib/models/app_settings.dart")
+        self.assertIn("probeInProgress", controller)
+        self.assertIn("_probeInProgress", core)
+        self.assertIn("_awgStatsReadInProgress", core)
+        self.assertIn("_startAwgStatistics", core)
+        self.assertIn("Future<AwgTrafficStats> statistics", bridge)
+        self.assertIn("getStatistics(tunnel)", patcher)
+        self.assertIn("warpGenerationCooldown = Duration(hours: 1)", controller)
+        self.assertIn("generateOneWarp", controller)
+        self.assertEqual(generator.count("/api/generate'"), 3)
+        self.assertIn("enum VisualTheme", settings)
+        for name in ("theme_nightmare.webp", "theme_symbiosis.webp"):
+            self.assertTrue((ROOT / "assets" / "images" / name).is_file())
 
     def test_split_tunneling_applies_to_both_cores(self) -> None:
         settings = self.read("lib/models/app_settings.dart")
@@ -72,9 +93,9 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("NavigationBar", shell)
         self.assertNotIn("NavigationRail", shell)
 
-    def test_version_is_092(self) -> None:
-        self.assertIn("version: 0.9.2+92", self.read("pubspec.yaml"))
-        self.assertIn("Поколение VPN 0.9.2", self.read("lib/screens/settings_screen.dart"))
+    def test_version_is_093(self) -> None:
+        self.assertIn("version: 0.9.3+93", self.read("pubspec.yaml"))
+        self.assertIn("Поколение VPN 0.9.3", self.read("lib/screens/settings_screen.dart"))
 
     def test_analyzer_keeps_compile_warnings_fatal_without_style_noise(self) -> None:
         pubspec = self.read("pubspec.yaml")

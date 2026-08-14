@@ -1,4 +1,5 @@
 enum SplitTunnelMode { off, include, exclude }
+enum VisualTheme { nightmare, symbiosis }
 
 class AppSettings {
   const AppSettings({
@@ -25,6 +26,7 @@ class AppSettings {
     this.splitTunnelPackages = const <String>[],
     this.remoteCatalogUrl =
         'https://raw.githubusercontent.com/CTPAXlost/BPM/main/catalog/public_catalog.json',
+    this.visualTheme = VisualTheme.symbiosis,
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -73,6 +75,10 @@ class AppSettings {
       remoteCatalogUrl: _migrateCatalogUrl(
         json['remote_catalog_url']?.toString(),
       ),
+      visualTheme: VisualTheme.values.firstWhere(
+        (value) => value.name == json['visual_theme'],
+        orElse: () => VisualTheme.symbiosis,
+      ),
     );
   }
 
@@ -98,6 +104,7 @@ class AppSettings {
   final SplitTunnelMode splitTunnelMode;
   final List<String> splitTunnelPackages;
   final String remoteCatalogUrl;
+  final VisualTheme visualTheme;
 
   static String _migrateCatalogUrl(String? value) {
     final normalized = value?.trim() ?? '';
@@ -131,6 +138,7 @@ class AppSettings {
     SplitTunnelMode? splitTunnelMode,
     List<String>? splitTunnelPackages,
     String? remoteCatalogUrl,
+    VisualTheme? visualTheme,
   }) {
     return AppSettings(
       mtu: mtu ?? this.mtu,
@@ -157,6 +165,7 @@ class AppSettings {
       splitTunnelMode: splitTunnelMode ?? this.splitTunnelMode,
       splitTunnelPackages: splitTunnelPackages ?? this.splitTunnelPackages,
       remoteCatalogUrl: remoteCatalogUrl ?? this.remoteCatalogUrl,
+      visualTheme: visualTheme ?? this.visualTheme,
     );
   }
 
@@ -183,5 +192,6 @@ class AppSettings {
     'split_tunnel_mode': splitTunnelMode.name,
     'split_tunnel_packages': splitTunnelPackages,
     'remote_catalog_url': remoteCatalogUrl,
+    'visual_theme': visualTheme.name,
   };
 }
