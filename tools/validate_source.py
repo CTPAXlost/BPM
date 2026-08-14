@@ -93,6 +93,7 @@ def validate_architecture(errors: list[str]) -> None:
     check("Future<ProbeResult> test(" in core, "Android URL Test is missing", errors)
     check("Future<ProbeResult> quickTest(" in core, "Fast list probe is missing", errors)
     check("pingProfile(profile: parsed.profile)" in core, "Native profile ping is missing", errors)
+    check("ping.success && latencyMs != null" in core, "Nullable ping latency is not guarded", errors)
     test_block = core.split("Future<ProbeResult> test(", 1)[1].split("Future<ProbeResult> validateConnected", 1)[0]
     check("await connect(node, settings)" in test_block, "Full tunnel probe is missing", errors)
     check("await validateConnected(remaining)" in test_block, "VPN-bound HTTPS validation is missing", errors)

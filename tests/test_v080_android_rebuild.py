@@ -28,6 +28,7 @@ class AndroidRebuildTests(unittest.TestCase):
             "Future<ProbeResult> validateConnected", 1
         )[0]
         self.assertIn("pingProfile(profile: parsed.profile)", quick)
+        self.assertIn("ping.success && latencyMs != null", quick)
         self.assertNotIn("await connect(node, settings)", quick)
         self.assertNotIn("pingProfile", block)
         self.assertIn("await connect(node, settings)", block)

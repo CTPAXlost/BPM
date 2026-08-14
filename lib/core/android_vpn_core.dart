@@ -233,11 +233,19 @@ class AndroidVpnCore implements VpnCore {
       final ping = await _vpn
           .pingProfile(profile: parsed.profile)
           .timeout(timeout);
-      if (ping.success) {
+      final latencyMs = ping.latencyMs;
+      if (ping.success && latencyMs != null) {
         return ProbeResult.reachabilitySuccess(
-          ping.latencyMs.clamp(1, 60000).toInt(),
+          latencyMs.clamp(1, 60000).toInt(),
           detail:
               'Адрес сервера и TLS/Reality доступны. Полный трафик проверяется при подключении.',
+        );
+      }
+      if (ping.success) {
+        return const ProbeResult.failure(
+          'Сервер ответил, но ядро не вернуло время задержки.',
+          kind: ProbeKind.reachability,
+          definitive: false,
         );
       }
       return ProbeResult.failure(
