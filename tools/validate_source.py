@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.9.3"
-EXPECTED_BUILD = "93"
+EXPECTED_VERSION = "0.9.4"
+EXPECTED_BUILD = "94"
 
 
 def read(relative: str) -> str:
@@ -71,7 +71,7 @@ def validate_version(errors: list[str]) -> None:
     pubspec = read("pubspec.yaml")
     check(
         f"version: {EXPECTED_VERSION}+{EXPECTED_BUILD}" in pubspec,
-        "pubspec version is not 0.9.3+93",
+        "pubspec version is not 0.9.4+94",
         errors,
     )
     check("window_manager" not in pubspec, "Desktop dependency remains", errors)
@@ -98,7 +98,7 @@ def validate_architecture(errors: list[str]) -> None:
     check("await disconnect()" in test_block, "Temporary tunnel cleanup is missing", errors)
     check("HTTPS через VPN прошёл" in controller, "User-facing tunnel validation message is missing", errors)
     check("url_test_failures" in controller, "Repeated failure tracking is missing", errors)
-    check("removeAfterFailures" in controller, "Removal threshold is missing", errors)
+    check("final remove = settings.autoRemoveUnavailable" in controller, "Manual failure removal is missing", errors)
     check("hasBaseInternet" in controller, "Base internet guard is missing", errors)
     check("probeInProgress" in controller, "Controller probe mutex is missing", errors)
     check("_probeInProgress" in core, "Core probe mutex is missing", errors)
@@ -256,7 +256,7 @@ def main() -> None:
         for error in errors:
             print(f"ERROR: {error}")
         raise SystemExit(1)
-    print("Pokolenie VPN 0.9.3 Android source validation: OK")
+    print("Pokolenie VPN 0.9.4 Android source validation: OK")
 
 
 if __name__ == "__main__":

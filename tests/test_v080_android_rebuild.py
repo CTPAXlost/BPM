@@ -41,7 +41,7 @@ class AndroidRebuildTests(unittest.TestCase):
     def test_failed_profiles_require_repeated_failures(self) -> None:
         controller = self.read("lib/services/app_controller.dart")
         self.assertIn("url_test_failures", controller)
-        self.assertIn("failures >= settings.removeAfterFailures", controller)
+        self.assertIn("final remove = settings.autoRemoveUnavailable", controller)
         self.assertIn("hasBaseInternet", controller)
         self.assertIn("quarantineHours", controller)
 
@@ -93,9 +93,9 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("NavigationBar", shell)
         self.assertNotIn("NavigationRail", shell)
 
-    def test_version_is_093(self) -> None:
-        self.assertIn("version: 0.9.3+93", self.read("pubspec.yaml"))
-        self.assertIn("Поколение VPN 0.9.3", self.read("lib/screens/settings_screen.dart"))
+    def test_version_is_094(self) -> None:
+        self.assertIn("version: 0.9.4+94", self.read("pubspec.yaml"))
+        self.assertIn("Поколение VPN 0.9.4", self.read("lib/screens/settings_screen.dart"))
 
     def test_analyzer_keeps_compile_warnings_fatal_without_style_noise(self) -> None:
         pubspec = self.read("pubspec.yaml")
@@ -123,6 +123,11 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("autoRefresh", settings)
         self.assertIn("refreshOnResume", settings)
         self.assertIn("autoTestAfterRefresh", settings)
+        self.assertIn("autoTestAfterRefresh: false", settings)
+        refresh = controller.split("Future<void> refreshCatalog", 1)[1].split(
+            "VpnNode _preserveRuntime", 1
+        )[0]
+        self.assertNotIn("_testNodeQueue", refresh)
         self.assertIn("refreshCatalog({bool silent = false})", controller)
         self.assertIn("_configureTimer", controller)
 

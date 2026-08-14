@@ -65,15 +65,6 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     _SwitchSetting(
-                      title: 'Проверять подключение после обновления',
-                      subtitle:
-                          'Проверяет новые обычные профили без включения VPN.',
-                      value: settings.autoTestAfterRefresh,
-                      onChanged: (value) => controller.updateSettings(
-                        settings.copyWith(autoTestAfterRefresh: value),
-                      ),
-                    ),
-                    _SwitchSetting(
                       title: 'Пауза во время VPN',
                       subtitle: 'Не обновляет каталог при активном соединении.',
                       value: settings.pauseRefreshWhileConnected,
@@ -160,21 +151,12 @@ class SettingsScreen extends StatelessWidget {
                       ),
                     ),
                     _SwitchSetting(
-                      title: 'Удалять после провалов подключения',
+                      title: 'Удалять не прошедшие проверку',
                       subtitle:
-                          'Только после нескольких подтверждённых провалов.',
+                          'Только после ручного полного подключения и провала HTTPS через VPN.',
                       value: settings.autoRemoveUnavailable,
                       onChanged: (value) => controller.updateSettings(
                         settings.copyWith(autoRemoveUnavailable: value),
-                      ),
-                    ),
-                    _ChoiceSetting(
-                      title: 'Провалов до удаления',
-                      value: settings.removeAfterFailures,
-                      values: const <int>[2, 3, 4, 5, 7, 10],
-                      label: (value) => '$value',
-                      onChanged: (value) => controller.updateSettings(
-                        settings.copyWith(removeAfterFailures: value),
                       ),
                     ),
                     _ChoiceSetting(
@@ -584,7 +566,7 @@ class _AboutCard extends StatelessWidget {
       child: const ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(Icons.android_rounded, color: AppColors.mint),
-        title: Text('Поколение VPN 0.9.3'),
+        title: Text('Поколение VPN 0.9.4'),
         subtitle: Text(
           'Android-клиент с WARP, реальной проверкой VPN-подключения, '
           'автообновлением каталогов и split tunneling.',

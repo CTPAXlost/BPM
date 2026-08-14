@@ -294,6 +294,9 @@ class AndroidVpnCore implements VpnCore {
       } catch (_) {
         // Best-effort cleanup after an isolated full-tunnel probe.
       }
+      // Give Android VpnService and libbox time to release the TUN file
+      // descriptor before another manually requested profile is started.
+      await Future<void>.delayed(const Duration(milliseconds: 900));
       _silentProbe = false;
       _probeInProgress = false;
     }

@@ -8,7 +8,7 @@ class AppSettings {
     this.autoRefresh = true,
     this.refreshMinutes = 60,
     this.refreshOnResume = true,
-    this.autoTestAfterRefresh = true,
+    this.autoTestAfterRefresh = false,
     this.maxPerProtocol = 50,
     this.urlTestTimeoutMs = 15000,
     this.urlTestConcurrency = 1,
@@ -39,7 +39,9 @@ class AppSettings {
       autoRefresh: json['auto_refresh'] != false,
       refreshMinutes: readInt('refresh_minutes', 60).clamp(15, 1440).toInt(),
       refreshOnResume: json['refresh_on_resume'] != false,
-      autoTestAfterRefresh: json['auto_test_after_refresh'] != false,
+      // Full VPN checks are manual-only. Keep the field for settings migration,
+      // but never restore the old automatic startup behavior.
+      autoTestAfterRefresh: false,
       maxPerProtocol: readInt('max_per_protocol', 50).clamp(10, 250).toInt(),
       urlTestTimeoutMs: readInt(
         'url_test_timeout_ms',

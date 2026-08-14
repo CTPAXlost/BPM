@@ -103,7 +103,7 @@ class AppController extends ChangeNotifier {
     if (testingAll) {
       result.sort(_compareFrozenTestOrder);
     } else {
-      result.sort((a, b) => a.routeScore.compareTo(b.routeScore));
+      result.sort(_compareDisplayNodes);
     }
     return result;
   }
@@ -150,8 +150,19 @@ class AppController extends ChangeNotifier {
           node.source.toLowerCase().contains(query) ||
           node.protocol.label.toLowerCase().contains(query);
     }).toList();
-    filtered.sort(testingAll ? _compareFrozenTestOrder : _compareNodes);
+    filtered.sort(testingAll ? _compareFrozenTestOrder : _compareDisplayNodes);
     return filtered;
+  }
+
+  int _compareDisplayNodes(VpnNode a, VpnNode b) {
+    if (a.isFavorite != b.isFavorite) return a.isFavorite ? -1 : 1;
+    if (settings.preferWhitelist && a.isWhitelist != b.isWhitelist) {
+      return a.isWhitelist ? -1 : 1;
+    }
+    final byProtocol = a.protocol.index.compareTo(b.protocol.index);
+    if (byProtocol != 0) return byProtocol;
+    final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    return byName != 0 ? byName : a.id.compareTo(b.id);
   }
 
   int _compareNodes(VpnNode a, VpnNode b) {
@@ -185,6 +196,11 @@ class AppController extends ChangeNotifier {
           .where((node) => !_isQuarantined(node.id))
           .where((node) => !_isRetiredGeneratedWarp(node))
           .where((node) => !_isRetiredBundledWarp(node))
+          .map(
+            (node) => node.health == NodeHealth.checking
+                ? node.copyWith(health: NodeHealth.unknown)
+                : node,
+          )
           .toList();
       if (nodes.length != storedNodes.length) {
         await storage.saveNodes(nodes);
@@ -611,9 +627,10 @@ class AppController extends ChangeNotifier {
       },
     );
     _replaceNode(updated);
-    final remove =
-        settings.autoRemoveUnavailable &&
-        failures >= settings.removeAfterFailures;
+    // A manual test is already a full tunnel + HTTPS check. If it fails
+    // definitively, remove it immediately as requested; quarantine prevents a
+    // broken source from adding the same profile straight back.
+    final remove = settings.autoRemoveUnavailable;
     if (remove) {
       await _quarantineAndRemove(updated);
     } else {
@@ -621,9 +638,8 @@ class AppController extends ChangeNotifier {
     }
     if (announce) {
       message = remove
-          ? 'Сервер удалён после $failures подтверждённых провалов подключения.'
-          : 'Сервер не ответил: попытка $failures из '
-                '${settings.removeAfterFailures}. Он пока сохранён.';
+          ? 'Сервер не передал HTTPS через VPN и удалён.'
+          : 'Сервер не передал HTTPS через VPN и отмечен недоступным.';
       notifyListeners();
     }
     return false;
@@ -758,7 +774,6 @@ class AppController extends ChangeNotifier {
     refreshing = true;
     if (!silent) message = null;
     notifyListeners();
-    var shouldAutoTest = false;
     try {
       final previous = <String, VpnNode>{
         for (final node in nodes) node.id: node,
@@ -803,11 +818,6 @@ class AppController extends ChangeNotifier {
         await storage.saveSelectedNodeId(null);
       }
       await _saveSuccessfulRefresh();
-      shouldAutoTest =
-          settings.autoTestAfterRefresh &&
-          !connected &&
-          !testingAll &&
-          regularNodes.isNotEmpty;
       if (!silent) {
         final failed = result.failedSources.isEmpty
             ? ''
@@ -825,15 +835,6 @@ class AppController extends ChangeNotifier {
     } finally {
       refreshing = false;
       notifyListeners();
-      if (shouldAutoTest) {
-        unawaited(
-          _testNodeQueue(
-            regularNodes.take(40).toList(),
-            label: 'новых серверов',
-            showSummary: false,
-          ),
-        );
-      }
     }
   }
 
@@ -948,13 +949,22 @@ class AppController extends ChangeNotifier {
   }
 
   Future<int> generateOneWarp() async {
-    if (!canGenerateWarp) {
-      final remaining = warpGenerationRemaining;
-      if (remaining > Duration.zero) {
-        final minutes = (remaining.inSeconds / 60).ceil();
-        message = 'Следующий WARP можно создать через $minutes мин.';
-        notifyListeners();
-      }
+    if (generatingWarp) return 0;
+    final remaining = warpGenerationRemaining;
+    if (remaining > Duration.zero) {
+      final minutes = (remaining.inSeconds / 60).ceil();
+      message = 'Следующий WARP можно создать через $minutes мин.';
+      notifyListeners();
+      return 0;
+    }
+    if (testingAll || probeInProgress) {
+      message = 'Дождись завершения проверки конфигов.';
+      notifyListeners();
+      return 0;
+    }
+    if (connected || busy) {
+      message = 'Перед генерацией отключи активное VPN-соединение.';
+      notifyListeners();
       return 0;
     }
     generatingWarp = true;

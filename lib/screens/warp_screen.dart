@@ -165,9 +165,9 @@ class _ImportCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: controller.canGenerateWarp
-                  ? controller.generateOneWarp
-                  : null,
+              onPressed: controller.generatingWarp
+                  ? null
+                  : controller.generateOneWarp,
               icon: const Icon(Icons.auto_awesome_rounded),
               label: Text(
                 controller.generatingWarp

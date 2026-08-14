@@ -1,4 +1,4 @@
-# Архитектура 0.9.3
+# Архитектура 0.9.4
 
 - `AppController` — каталог, выбор профиля, URL Test, обновление, карантин.
 - `AndroidVpnCore` — sing-box для обычных протоколов и AmneziaWG bridge для WARP.
