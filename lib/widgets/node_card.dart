@@ -12,7 +12,7 @@ class NodeCard extends StatelessWidget {
     required this.onTest,
     required this.onFavorite,
     required this.onDelete,
-    this.testLabel = 'Проверить подключение',
+    this.testLabel = 'Быстрый пинг',
     super.key,
   });
 

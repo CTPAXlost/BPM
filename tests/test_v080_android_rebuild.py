@@ -19,11 +19,16 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertNotIn("windows:", workflow)
         self.assertNotIn("flutter build windows", workflow)
 
-    def test_every_server_test_uses_a_real_temporary_tunnel(self) -> None:
+    def test_fast_list_ping_and_full_tunnel_probe_are_separate(self) -> None:
         core = self.read("lib/core/android_vpn_core.dart")
+        quick = core.split("Future<ProbeResult> quickTest(", 1)[1].split(
+            "Future<ProbeResult> test(", 1
+        )[0]
         block = core.split("Future<ProbeResult> test(", 1)[1].split(
             "Future<ProbeResult> validateConnected", 1
         )[0]
+        self.assertIn("pingProfile(profile: parsed.profile)", quick)
+        self.assertNotIn("await connect(node, settings)", quick)
         self.assertNotIn("pingProfile", block)
         self.assertIn("await connect(node, settings)", block)
         self.assertIn("await validateConnected(remaining)", block)
@@ -73,7 +78,8 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("getStatistics(tunnel)", patcher)
         self.assertIn("warpGenerationCooldown = Duration(hours: 1)", controller)
         self.assertIn("generateOneWarp", controller)
-        self.assertEqual(generator.count("/api/generate'"), 3)
+        self.assertEqual(generator.count("/api/generate'"), 4)
+        self.assertIn("warp3.llimonix.pw/api/generate", generator)
         self.assertIn("enum VisualTheme", settings)
         for name in ("theme_nightmare.webp", "theme_symbiosis.webp"):
             self.assertTrue((ROOT / "assets" / "images" / name).is_file())
@@ -93,9 +99,9 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("NavigationBar", shell)
         self.assertNotIn("NavigationRail", shell)
 
-    def test_version_is_094(self) -> None:
-        self.assertIn("version: 0.9.4+94", self.read("pubspec.yaml"))
-        self.assertIn("Поколение VPN 0.9.4", self.read("lib/screens/settings_screen.dart"))
+    def test_version_is_095(self) -> None:
+        self.assertIn("version: 0.9.5+95", self.read("pubspec.yaml"))
+        self.assertIn("Поколение VPN 0.9.5", self.read("lib/screens/settings_screen.dart"))
 
     def test_analyzer_keeps_compile_warnings_fatal_without_style_noise(self) -> None:
         pubspec = self.read("pubspec.yaml")

@@ -1,7 +1,7 @@
 name: pokolenie_vpn
 description: Android VPN-клиент «Поколение» с автообновляемым каталогом и честным URL Test.
 publish_to: none
-version: 0.9.4+94
+version: 0.9.5+95
 
 environment:
   sdk: '>=3.10.0 <4.0.0'

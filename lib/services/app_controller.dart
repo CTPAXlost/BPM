@@ -465,7 +465,8 @@ class AppController extends ChangeNotifier {
     bool queued = false,
   }) async {
     if (!nodes.any((item) => item.id == node.id)) return false;
-    if (connected || busy || probeInProgress || (testingAll && !queued)) {
+    if (connected || busy || (probeInProgress && !queued) ||
+        (testingAll && !queued)) {
       if (announce) {
         message =
             connected || busy
@@ -476,12 +477,16 @@ class AppController extends ChangeNotifier {
       return false;
     }
 
-    probeInProgress = true;
+    final quick = node.protocol != VpnProtocol.warp;
+    if (!queued) probeInProgress = true;
     final current = _currentNode(node.id) ?? node;
     _replaceNode(current.copyWith(health: NodeHealth.checking));
-    final timeout = Duration(
-      milliseconds: settings.urlTestTimeoutMs.clamp(12000, 60000).toInt(),
-    );
+    final timeout = quick
+        ? const Duration(seconds: 5)
+        : Duration(
+            milliseconds:
+                settings.urlTestTimeoutMs.clamp(12000, 30000).toInt(),
+          );
     try {
       {
         final baseAvailable =
@@ -510,7 +515,9 @@ class AppController extends ChangeNotifier {
         }
       }
 
-      final result = await latency.check(current, timeout, settings: settings);
+      final result = quick
+          ? await latency.checkQuick(current, timeout)
+          : await latency.check(current, timeout, settings: settings);
       return _applyProbeResult(current, result, announce: announce);
     } catch (error) {
       _replaceNode(
@@ -531,7 +538,7 @@ class AppController extends ChangeNotifier {
       }
       return false;
     } finally {
-      probeInProgress = false;
+      if (!queued) probeInProgress = false;
       notifyListeners();
     }
   }
@@ -563,6 +570,7 @@ class AppController extends ChangeNotifier {
     }
 
     if (result.success && result.latencyMs != null) {
+      final quick = result.kind == ProbeKind.reachability;
       _replaceNode(
         node.copyWith(
           latencyMs: result.latencyMs,
@@ -571,15 +579,16 @@ class AppController extends ChangeNotifier {
           metadata: <String, dynamic>{
             ...node.metadata,
             'probe_detail': result.detail,
-            'probe_kind': 'url_test',
+            'probe_kind': quick ? 'reachability' : 'url_test',
             'url_test_failures': 0,
           },
         ),
       );
       await storage.saveNodes(nodes);
       if (announce) {
-        message =
-            'Подключение проверено: ${result.latencyMs} мс. HTTPS через VPN прошёл.';
+        message = quick
+            ? 'Быстрый пинг: ${result.latencyMs} мс. Полный трафик будет проверен при подключении.'
+            : 'Подключение проверено: ${result.latencyMs} мс. HTTPS через VPN прошёл.';
         notifyListeners();
       }
       return true;
@@ -622,14 +631,15 @@ class AppController extends ChangeNotifier {
       metadata: <String, dynamic>{
         ...node.metadata,
         'probe_detail': result.detail,
-        'probe_kind': 'url_test',
+        'probe_kind': result.kind == ProbeKind.reachability
+            ? 'reachability'
+            : 'url_test',
         'url_test_failures': failures,
       },
     );
     _replaceNode(updated);
-    // A manual test is already a full tunnel + HTTPS check. If it fails
-    // definitively, remove it immediately as requested; quarantine prevents a
-    // broken source from adding the same profile straight back.
+    // Base internet was checked first. A definitive server timeout is removed
+    // immediately; quarantine prevents a broken source from adding it back.
     final remove = settings.autoRemoveUnavailable;
     if (remove) {
       await _quarantineAndRemove(updated);
@@ -638,8 +648,8 @@ class AppController extends ChangeNotifier {
     }
     if (announce) {
       message = remove
-          ? 'Сервер не передал HTTPS через VPN и удалён.'
-          : 'Сервер не передал HTTPS через VPN и отмечен недоступным.';
+          ? 'Сервер не ответил на проверку и удалён.'
+          : 'Сервер не ответил и отмечен недоступным.';
       notifyListeners();
     }
     return false;
@@ -678,7 +688,7 @@ class AppController extends ChangeNotifier {
     if (connected || busy) {
       if (showSummary) {
         message =
-            'Проверка требует свободного Android VPN. Сначала отключи активное соединение.';
+            'Во время проверки сначала отключи активное VPN-соединение.';
         notifyListeners();
       }
       return;
@@ -736,9 +746,13 @@ class AppController extends ChangeNotifier {
     }
 
     try {
-      // Android permits only one owner of VpnService. Full-tunnel checks must
-      // never overlap, otherwise one probe disconnects another and lies.
-      const workerCount = 1;
+      // Regular protocols use the native non-TUN ping and can be checked in a
+      // small parallel pool. WARP still owns VpnService and stays sequential.
+      final workerCount = queue.every(
+        (node) => node.protocol != VpnProtocol.warp,
+      )
+          ? 4
+          : 1;
       await Future.wait(
         List<Future<void>>.generate(workerCount, (_) => worker()),
       );

@@ -381,7 +381,6 @@ class MainActivity : FlutterActivity() {
         val targets = listOf(
             "https://cp.cloudflare.com/generate_204" to setOf(200, 204),
             "https://www.gstatic.com/generate_204" to setOf(200, 204),
-            "https://www.msftconnecttest.com/connecttest.txt" to setOf(200, 204),
         )
         var successes = 0
         var totalLatency = 0L
@@ -391,8 +390,8 @@ class MainActivity : FlutterActivity() {
             val connection = network.openConnection(URL(url)) as HttpURLConnection
             try {
                 connection.instanceFollowRedirects = false
-                connection.connectTimeout = 4_000
-                connection.readTimeout = 4_000
+                connection.connectTimeout = 2_500
+                connection.readTimeout = 2_500
                 connection.useCaches = false
                 connection.setRequestProperty("Cache-Control", "no-cache")
                 val code = connection.responseCode
@@ -540,7 +539,7 @@ class MainActivity : FlutterActivity() {
                         manager.getNetworkCapabilities(network)
                             ?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
                     }
-                    val value = probeNetwork(vpnNetwork, 2)
+                    val value = probeNetwork(vpnNetwork, 1)
                     runOnUiThread { result.success(value) }
                 } catch (error: Throwable) {
                     runOnUiThread {

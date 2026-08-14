@@ -28,7 +28,7 @@ class WarpScreen extends StatelessWidget {
                 const SizedBox(height: 5),
                 const Text(
                   'Создай один свежий WARP или загрузи WireGuard/AmneziaWG-файл. '
-                  'Проверка подтверждает реальный HTTPS через туннель.',
+                  'WARP проверяется реальным HTTPS через AWG-туннель.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 16),

@@ -111,7 +111,7 @@ class _Header extends StatelessWidget {
                     ),
                     Text(
                       '${controller.regularNodes.length} конфигураций · '
-                      '${controller.workingCount} прошли VPN-проверку',
+                      '${controller.workingCount} ответили на проверку',
                       style: const TextStyle(color: AppColors.textMuted),
                     ),
                   ],
@@ -124,7 +124,7 @@ class _Header extends StatelessWidget {
                     ? null
                     : controller.testVisibleNodes,
                 icon: const Icon(Icons.speed_rounded),
-                label: const Text('Проверить'),
+                label: const Text('Быстрый пинг'),
               ),
             ],
           ),
@@ -138,7 +138,7 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           const Text(
-            'Проверка временно подключает сервер и подтверждает HTTPS именно через VPN.',
+            'Быстрый пинг проверяет адрес и TLS/Reality без запуска VPN. Полный интернет проверяется при подключении.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],
@@ -211,7 +211,7 @@ class _TestProgress extends StatelessWidget {
           LinearProgressIndicator(value: progress),
           const SizedBox(height: 6),
           Text(
-            'Проверка подключения: ${controller.testingCompleted} из $total',
+            'Быстрый пинг: ${controller.testingCompleted} из $total',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ],

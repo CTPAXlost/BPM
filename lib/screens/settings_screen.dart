@@ -566,7 +566,7 @@ class _AboutCard extends StatelessWidget {
       child: const ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(Icons.android_rounded, color: AppColors.mint),
-        title: Text('Поколение VPN 0.9.4'),
+        title: Text('Поколение VPN 0.9.5'),
         subtitle: Text(
           'Android-клиент с WARP, реальной проверкой VPN-подключения, '
           'автообновлением каталогов и split tunneling.',

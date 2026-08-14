@@ -25,7 +25,7 @@ class CatalogRefreshResult {
 class CatalogService {
   CatalogService({http.Client? client}) : _client = client ?? http.Client();
 
-  static const _userAgent = 'Pokolenie-VPN/0.9.4';
+  static const _userAgent = 'Pokolenie-VPN/0.9.5';
   final http.Client _client;
 
   Future<List<SourceDefinition>> loadBundledSources() async {

@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.9.4"
-EXPECTED_BUILD = "94"
+EXPECTED_VERSION = "0.9.5"
+EXPECTED_BUILD = "95"
 
 
 def read(relative: str) -> str:
@@ -71,7 +71,7 @@ def validate_version(errors: list[str]) -> None:
     pubspec = read("pubspec.yaml")
     check(
         f"version: {EXPECTED_VERSION}+{EXPECTED_BUILD}" in pubspec,
-        "pubspec version is not 0.9.4+94",
+        "pubspec version is not 0.9.5+95",
         errors,
     )
     check("window_manager" not in pubspec, "Desktop dependency remains", errors)
@@ -91,7 +91,8 @@ def validate_architecture(errors: list[str]) -> None:
     workflow = read(".github/workflows/build.yml")
 
     check("Future<ProbeResult> test(" in core, "Android URL Test is missing", errors)
-    check("pingProfile" not in core, "Legacy false-positive profile ping remains", errors)
+    check("Future<ProbeResult> quickTest(" in core, "Fast list probe is missing", errors)
+    check("pingProfile(profile: parsed.profile)" in core, "Native profile ping is missing", errors)
     test_block = core.split("Future<ProbeResult> test(", 1)[1].split("Future<ProbeResult> validateConnected", 1)[0]
     check("await connect(node, settings)" in test_block, "Full tunnel probe is missing", errors)
     check("await validateConnected(remaining)" in test_block, "VPN-bound HTTPS validation is missing", errors)
@@ -106,6 +107,8 @@ def validate_architecture(errors: list[str]) -> None:
     check("generateOneWarp" in controller, "Single WARP generation is missing", errors)
     check("warpGenerationCooldown" in controller, "WARP generation cooldown is missing", errors)
     check("core.test(node, timeout" in latency, "Latency service does not delegate real probes", errors)
+    check("core.quickTest(node, timeout)" in latency, "Latency service does not delegate quick probes", errors)
+    check("? 4" in controller and ": 1" in controller, "Regular probe pool / sequential WARP split is missing", errors)
     check("generateWarpPool" not in controller, "Retired WARP generator remains", errors)
     check("importWarpFromWebsite" not in controller, "Retired WARP website import remains", errors)
     check("final file = await openFile();" in controller, "Unrestricted Android config picker is missing", errors)
@@ -256,7 +259,7 @@ def main() -> None:
         for error in errors:
             print(f"ERROR: {error}")
         raise SystemExit(1)
-    print("Pokolenie VPN 0.9.4 Android source validation: OK")
+    print("Pokolenie VPN 0.9.5 Android source validation: OK")
 
 
 if __name__ == "__main__":

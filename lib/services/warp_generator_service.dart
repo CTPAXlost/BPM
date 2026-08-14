@@ -8,6 +8,7 @@ class WarpGeneratorService {
   final http.Client _client;
 
   static const _mirrors = <String>[
+    'https://warp3.llimonix.pw/api/generate',
     'https://warply3.vercel.app/api/generate',
     'https://warp.llimonix.workers.dev/api/generate',
     'https://getwarp3.netlify.app/api/generate',
@@ -23,6 +24,7 @@ class WarpGeneratorService {
               headers: const <String, String>{
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
+                'User-Agent': 'Pokolenie-VPN/0.9.5 (Android)',
               },
               body: jsonEncode(const <String, dynamic>{
                 'selectedServices': <String>[],
@@ -32,43 +34,46 @@ class WarpGeneratorService {
                 'configFormat': 'wireguard',
                 'dnsId': 'cf',
                 'ipv6': false,
-                'excludeLan': false,
+                'excludeLan': true,
                 'persistentKeepalive': 25,
+                'customI1Domain': 'google.com',
               }),
             )
-            .timeout(const Duration(seconds: 18));
+            .timeout(const Duration(seconds: 12));
         if (response.statusCode == 429) {
-          errors.add('ограничение частоты');
+          errors.add('${Uri.parse(endpoint).host}: ограничение частоты');
           continue;
         }
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          errors.add('HTTP ${response.statusCode}');
+          errors.add('${Uri.parse(endpoint).host}: HTTP ${response.statusCode}');
           continue;
         }
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is! Map<String, dynamic> || decoded['success'] != true) {
-          errors.add('отказ сервера');
+          errors.add('${Uri.parse(endpoint).host}: отказ сервера');
           continue;
         }
         final content = decoded['content'];
         if (content is! Map<String, dynamic>) {
-          errors.add('нет конфигурации');
+          errors.add('${Uri.parse(endpoint).host}: нет конфигурации');
           continue;
         }
         final encoded = content['configBase64']?.toString() ?? '';
         if (encoded.isEmpty) {
-          errors.add('пустая конфигурация');
+          errors.add('${Uri.parse(endpoint).host}: пустая конфигурация');
           continue;
         }
         final config = utf8.decode(base64Decode(encoded)).trim();
         if (!config.toLowerCase().contains('[interface]') ||
             !config.toLowerCase().contains('[peer]')) {
-          errors.add('неверный формат');
+          errors.add('${Uri.parse(endpoint).host}: неверный формат');
           continue;
         }
         return '$config\n';
       } catch (error) {
-        errors.add(error.runtimeType.toString());
+        errors.add(
+          '${Uri.parse(endpoint).host}: ${error.runtimeType}',
+        );
       }
     }
     throw StateError(

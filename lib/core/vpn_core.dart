@@ -10,7 +10,7 @@ enum VpnCoreState {
   error,
 }
 
-enum ProbeKind { urlTest, configValidation, connectedTunnel }
+enum ProbeKind { reachability, urlTest, configValidation, connectedTunnel }
 
 class TrafficSnapshot {
   const TrafficSnapshot({
@@ -42,6 +42,17 @@ class ProbeResult {
          success: true,
          definitive: true,
          kind: ProbeKind.urlTest,
+         latencyMs: latencyMs,
+         detail: detail,
+       );
+
+  const ProbeResult.reachabilitySuccess(
+    int latencyMs, {
+    String detail = 'Сервер ответил на быструю сетевую проверку.',
+  }) : this._(
+         success: true,
+         definitive: true,
+         kind: ProbeKind.reachability,
          latencyMs: latencyMs,
          detail: detail,
        );
@@ -92,6 +103,10 @@ abstract class VpnCore {
   Future<void> initialize();
   Future<void> connect(VpnNode node, AppSettings settings);
   Future<void> disconnect();
+
+  /// Fast server reachability/TLS probe that does not acquire Android's
+  /// VpnService or create a TUN interface. Intended for list health checks.
+  Future<ProbeResult> quickTest(VpnNode node, Duration timeout);
 
   /// Temporarily connects the profile and verifies HTTPS through Android's
   /// VPN network. A server is successful only when user traffic can pass.

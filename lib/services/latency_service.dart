@@ -47,5 +47,8 @@ class LatencyService {
     required AppSettings settings,
   }) => core.test(node, timeout, settings: settings);
 
+  Future<ProbeResult> checkQuick(VpnNode node, Duration timeout) =>
+      core.quickTest(node, timeout);
+
   void dispose() => _client.close();
 }

@@ -212,6 +212,62 @@ class AndroidVpnCore implements VpnCore {
   }
 
   @override
+  Future<ProbeResult> quickTest(VpnNode node, Duration timeout) async {
+    if (node.protocol == VpnProtocol.warp) {
+      return const ProbeResult.failure(
+        'WARP проверяется только через настоящий AWG-туннель.',
+        kind: ProbeKind.reachability,
+        definitive: false,
+      );
+    }
+    if (!_singboxReady) {
+      final reason = _singboxInitError?.toString() ?? 'неизвестная ошибка';
+      return ProbeResult.failure(
+        'Ядро sing-box не инициализировано: $reason',
+        kind: ProbeKind.reachability,
+        definitive: false,
+      );
+    }
+    try {
+      final parsed = _vpn.parseConfigLink(node.rawConfig);
+      final ping = await _vpn
+          .pingProfile(profile: parsed.profile)
+          .timeout(timeout);
+      if (ping.success) {
+        return ProbeResult.reachabilitySuccess(
+          ping.latencyMs.clamp(1, 60000).toInt(),
+          detail:
+              'Адрес сервера и TLS/Reality доступны. Полный трафик проверяется при подключении.',
+        );
+      }
+      return ProbeResult.failure(
+        ping.error?.toString() ?? 'Сервер не ответил до истечения тайм-аута.',
+        kind: ProbeKind.reachability,
+      );
+    } on TimeoutException {
+      return const ProbeResult.failure(
+        'Сервер не ответил до истечения тайм-аута.',
+        kind: ProbeKind.reachability,
+      );
+    } on sb.SignboxVpnException catch (error) {
+      return ProbeResult.failure(
+        '${error.code}: ${error.message}',
+        kind: ProbeKind.reachability,
+      );
+    } catch (error) {
+      final lower = error.toString().toLowerCase();
+      final temporary = lower.contains('initialize') ||
+          lower.contains('channel') ||
+          lower.contains('busy');
+      return ProbeResult.failure(
+        'Быстрый пинг не выполнен: $error',
+        kind: ProbeKind.reachability,
+        definitive: !temporary,
+      );
+    }
+  }
+
+  @override
   Future<ProbeResult> test(
     VpnNode node,
     Duration timeout, {
@@ -367,8 +423,8 @@ class AndroidVpnCore implements VpnCore {
                 ? probe.latencyMs
                 : DateTime.now().difference(started).inMilliseconds,
             detail: _usingAwg
-                ? 'HTTPS-трафик через WARP/AWG подтверждён двумя независимыми адресами.'
-                : 'HTTPS-трафик через VPN подтверждён двумя независимыми адресами.',
+                ? 'HTTPS-трафик через WARP/AWG подтверждён через Android VPN-сеть.'
+                : 'HTTPS-трафик через VPN подтверждён через Android VPN-сеть.',
           );
         }
         if (_usingAwg) {
