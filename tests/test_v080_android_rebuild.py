@@ -45,19 +45,17 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("hasBaseInternet", controller)
         self.assertIn("quarantineHours", controller)
 
-    def test_warp_has_local_key_generation_and_real_probe(self) -> None:
+    def test_warp_uses_file_import_and_real_probe(self) -> None:
         controller = self.read("lib/services/app_controller.dart")
-        bridge = self.read("lib/services/warpgen_bridge.dart")
-        provisioning = self.read("lib/services/warp_provisioning_service.dart")
         core = self.read("lib/core/android_vpn_core.dart")
-        android = self.read("tools/prepare_android.py")
         self.assertIn("extractSingleWgQuick", controller)
-        self.assertIn("warpGenNet", bridge)
-        self.assertIn("warpGenGithub", bridge)
-        self.assertIn("generateKeyPair", provisioning)
-        self.assertIn("KeyPair()", android)
+        self.assertIn("final file = await openFile();", controller)
+        self.assertNotIn("generateWarpPool", controller)
+        self.assertNotIn("importWarpFromWebsite", controller)
         self.assertIn("probeVpnNetwork", core)
         self.assertNotIn("latencyMs: 1", core)
+        for name in ("WARP_STR8605.conf", "WARP_STR4470.conf", "WARP_STR6230.conf"):
+            self.assertTrue((ROOT / "assets" / "warp" / name).is_file())
 
     def test_split_tunneling_applies_to_both_cores(self) -> None:
         settings = self.read("lib/models/app_settings.dart")
@@ -74,9 +72,9 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("NavigationBar", shell)
         self.assertNotIn("NavigationRail", shell)
 
-    def test_version_is_091(self) -> None:
-        self.assertIn("version: 0.9.1+91", self.read("pubspec.yaml"))
-        self.assertIn("Поколение VPN 0.9.1", self.read("lib/screens/settings_screen.dart"))
+    def test_version_is_092(self) -> None:
+        self.assertIn("version: 0.9.2+92", self.read("pubspec.yaml"))
+        self.assertIn("Поколение VPN 0.9.2", self.read("lib/screens/settings_screen.dart"))
 
     def test_analyzer_keeps_compile_warnings_fatal_without_style_noise(self) -> None:
         pubspec = self.read("pubspec.yaml")
@@ -85,14 +83,6 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertNotIn("package:flutter_lints", analysis)
         self.assertIn("unused_import: error", analysis)
         self.assertIn("dead_code: error", analysis)
-
-    def test_app_controller_imports_follow_directives_ordering(self) -> None:
-        controller = self.read("lib/services/app_controller.dart")
-        self.assertLess(
-            controller.index("import 'warp_provisioning_service.dart';"),
-            controller.index("import 'warpgen_bridge.dart';"),
-        )
-
 
     def test_setup_errors_do_not_count_as_dead_server(self) -> None:
         controller = self.read("lib/services/app_controller.dart")
@@ -114,6 +104,21 @@ class AndroidRebuildTests(unittest.TestCase):
         self.assertIn("autoTestAfterRefresh", settings)
         self.assertIn("refreshCatalog({bool silent = false})", controller)
         self.assertIn("_configureTimer", controller)
+
+    def test_hourly_catalog_is_published_and_whitelist_caps_are_separate(self) -> None:
+        workflow = self.read(".github/workflows/refresh-catalog.yml")
+        settings = self.read("lib/models/app_settings.dart")
+        self.assertIn("contents: write", workflow)
+        self.assertIn("whitelist_counts", workflow)
+        self.assertIn("git push", workflow)
+        self.assertIn("CTPAXlost/BPM/main/catalog/public_catalog.json", settings)
+
+    def test_bulk_probe_keeps_ui_order_and_hides_temporary_core_states(self) -> None:
+        controller = self.read("lib/services/app_controller.dart")
+        core = self.read("lib/core/android_vpn_core.dart")
+        self.assertIn("_testingOrder", controller)
+        self.assertIn("_compareFrozenTestOrder", controller)
+        self.assertIn("_silentProbe", core)
 
     def test_android_patcher_is_idempotent_and_private(self) -> None:
         with tempfile.TemporaryDirectory() as raw_temp:
@@ -179,9 +184,9 @@ class AndroidRebuildTests(unittest.TestCase):
             )
             self.assertNotIn("usesCleartextTraffic", manifest)
             self.assertNotIn("QUERY_ALL_PACKAGES", manifest)
-            self.assertEqual(manifest.count("WarpGenActivity"), 1)
+            self.assertEqual(manifest.count("WarpGenActivity"), 0)
             self.assertEqual(kotlin.count("class MainActivity"), 1)
-            self.assertEqual(kotlin.count("import android.util.Base64"), 1)
+            self.assertNotIn("WarpGenActivity", kotlin)
             self.assertEqual(kotlin.count("tunnelName = requestedName"), 1)
             self.assertEqual(gradle.count("useLegacyPackaging = true"), 1)
             self.assertNotIn("enableUncompressedNativeLibs", gradle_properties)

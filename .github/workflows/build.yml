@@ -148,7 +148,7 @@ jobs:
           test "$APK_SIZE" -lt 125829120
           "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$APK" > build/manifest.txt
           grep -F 'app.pokolenie.vpn.MainActivity' build/manifest.txt
-          grep -F 'app.pokolenie.vpn.WarpGenActivity' build/manifest.txt
+          ! grep -F 'app.pokolenie.vpn.WarpGenActivity' build/manifest.txt
           unzip -l "$APK" > build/apk-files.txt
           grep -E 'lib/arm64-v8a/lib(wg-go|wg|wg-quick)\.so' build/apk-files.txt
           grep -E 'lib/arm64-v8a/.*(libbox|singbox|sing-box).*\.so' build/apk-files.txt

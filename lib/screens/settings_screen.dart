@@ -128,30 +128,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 _Section(
-                  title: 'Автоматический WARP',
-                  icon: Icons.bolt_rounded,
-                  children: <Widget>[
-                    _SwitchSetting(
-                      title: 'Создавать WARP автоматически',
-                      subtitle: 'Если WARP-пул пуст, регистрирует новый набор.',
-                      value: settings.autoGenerateWarp,
-                      onChanged: (value) => controller.updateSettings(
-                        settings.copyWith(autoGenerateWarp: value),
-                      ),
-                    ),
-                    _ChoiceSetting(
-                      title: 'Endpoint-вариантов',
-                      value: settings.warpPoolSize,
-                      values: const <int>[2, 4, 6, 8, 10],
-                      label: (value) => '$value',
-                      onChanged: (value) => controller.updateSettings(
-                        settings.copyWith(warpPoolSize: value),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _Section(
                   title: 'Проверка подключения',
                   icon: Icons.speed_rounded,
                   children: <Widget>[
@@ -564,7 +540,7 @@ class _AboutCard extends StatelessWidget {
       child: const ListTile(
         contentPadding: EdgeInsets.zero,
         leading: Icon(Icons.android_rounded, color: AppColors.mint),
-        title: Text('Поколение VPN 0.9.1'),
+        title: Text('Поколение VPN 0.9.2'),
         subtitle: Text(
           'Android-клиент с WARP, реальной проверкой VPN-подключения, '
           'автообновлением каталогов и split tunneling.',

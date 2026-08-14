@@ -387,12 +387,13 @@ class NodeParser {
   }
 
   static VpnNode? _parseWgQuick(String raw, String source) {
-    final endpointValue = _wgValue(raw, 'Endpoint');
+    final normalized = _normalizeWgQuickConfig(raw);
+    final endpointValue = _wgValue(normalized, 'Endpoint');
     if (endpointValue == null) return null;
     final parsedEndpoint = _parseEndpoint(endpointValue);
     if (parsedEndpoint == null) return null;
 
-    final lower = raw.toLowerCase();
+    final lower = normalized.toLowerCase();
     final isWarpGen = lower.contains('warpgen.net') ||
         lower.contains('warp-gen1.vercel.app') ||
         lower.contains('generated with warpgen') ||
@@ -401,9 +402,8 @@ class NodeParser {
       r'^\s*(?:jc|jmin|jmax|s1|s2|s3|s4|h1|h2|h3|h4|i1|i2|i3|i4|i5)\s*=',
       caseSensitive: false,
       multiLine: true,
-    ).hasMatch(raw);
-    final normalized = raw.replaceAll('\r\n', '\n').trim();
-    final addressValues = (_wgValue(raw, 'Address') ?? '')
+    ).hasMatch(normalized);
+    final addressValues = (_wgValue(normalized, 'Address') ?? '')
         .split(',')
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
@@ -417,13 +417,13 @@ class NodeParser {
         addressV4 = addressV4.isEmpty ? value : addressV4;
       }
     }
-    final reserved = _parseWgReserved(_wgValue(raw, 'Reserved'));
-    final allowedIps = (_wgValue(raw, 'AllowedIPs') ?? '')
+    final reserved = _parseWgReserved(_wgValue(normalized, 'Reserved'));
+    final allowedIps = (_wgValue(normalized, 'AllowedIPs') ?? '')
         .split(',')
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toList(growable: false);
-    final mtu = int.tryParse(_wgValue(raw, 'MTU') ?? '') ?? 1280;
+    final mtu = int.tryParse(_wgValue(normalized, 'MTU') ?? '') ?? 1280;
     final name = isWarpGen
         ? 'WarpGen WARP'
         : (isAwg ? 'WARP / AmneziaWG' : 'WARP / WireGuard');
@@ -445,18 +445,45 @@ class NodeParser {
         'engine': isAwg ? 'amneziawg' : 'wireguard',
         'warpgen': isWarpGen,
         'mtu': mtu,
-        'private_key': _wgValue(raw, 'PrivateKey') ?? '',
+        'private_key': _wgValue(normalized, 'PrivateKey') ?? '',
         'address_v4': addressV4,
         'address_v6': addressV6,
-        'peer_public_key': _wgValue(raw, 'PublicKey') ?? '',
+        'peer_public_key': _wgValue(normalized, 'PublicKey') ?? '',
         'allowed_ips': allowedIps,
         'reserved': reserved ?? const <int>[],
         'endpoint_host': parsedEndpoint.$1,
         'endpoint_port': parsedEndpoint.$2,
-        if ((_wgValue(raw, 'DNS') ?? '').isNotEmpty)
-          'dns': _wgValue(raw, 'DNS'),
+        if ((_wgValue(normalized, 'DNS') ?? '').isNotEmpty)
+          'dns': _wgValue(normalized, 'DNS'),
       },
     );
+  }
+
+  static String _normalizeWgQuickConfig(String raw) {
+    final lines = raw
+        .replaceFirst('\uFEFF', '')
+        .replaceAll('\r\n', '\n')
+        .split('\n');
+    for (var index = 0; index < lines.length; index++) {
+      final line = lines[index];
+      final separator = line.indexOf('=');
+      if (separator <= 0 ||
+          line.substring(0, separator).trim().toLowerCase() != 'address') {
+        continue;
+      }
+      final addresses = line
+          .substring(separator + 1)
+          .split(',')
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .map((value) {
+            if (value.contains('/')) return value;
+            return value.contains(':') ? '$value/128' : '$value/32';
+          })
+          .join(', ');
+      lines[index] = 'Address = $addresses';
+    }
+    return lines.join('\n').trim();
   }
 
   static String? _wgValue(String raw, String field) {

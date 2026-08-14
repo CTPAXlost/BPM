@@ -249,13 +249,6 @@ def _patch_android_manifest() -> None:
     if missing:
         text = _insert_after_opening_tag(text, "manifest", missing)
 
-    if "app.pokolenie.vpn.WarpGenActivity" not in text:
-        activity = (
-            '\n        <activity android:name="app.pokolenie.vpn.WarpGenActivity" '
-            'android:exported="false" android:theme="@android:style/Theme.Material.NoActionBar" />\n'
-        )
-        text = text.replace("</application>", activity + "    </application>", 1)
-
     text = re.sub(r'android:label="[^"]*"', 'android:label="Поколение VPN"', text, count=1)
     text = re.sub(
         r'android:name="(?:\.MainActivity|[^\"]*MainActivity)"',
@@ -295,17 +288,7 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.VpnService
-import android.os.Bundle
-import android.util.Base64
 import android.util.Log
-import android.view.ViewGroup
-import android.webkit.CookieManager
-import android.webkit.DownloadListener
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -313,11 +296,9 @@ import io.flutter.plugin.common.MethodChannel
 import org.amnezia.awg.backend.GoBackend
 import org.amnezia.awg.backend.Tunnel
 import org.amnezia.awg.config.Config
-import org.amnezia.awg.crypto.KeyPair
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLDecoder
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -364,58 +345,17 @@ private object AwgRuntime {
 class MainActivity : FlutterActivity() {
     companion object {
         private const val AWG_CHANNEL = "app.pokolenie/awg"
-        private const val WARPGEN_CHANNEL = "app.pokolenie/warpgen"
         private const val VPN_PERMISSION_REQUEST = 9317
-        private const val WARPGEN_REQUEST = 9318
         private const val TAG = "Pokolenie/AWG"
     }
 
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private var pendingPermissionResult: MethodChannel.Result? = null
-    private var pendingWarpGenResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         MethodChannel(messenger, AWG_CHANNEL).setMethodCallHandler(::handleAwgCall)
-        MethodChannel(messenger, WARPGEN_CHANNEL).setMethodCallHandler { call, result ->
-            when (call.method) {
-                "generateKeyPair" -> {
-                    try {
-                        val pair = KeyPair()
-                        result.success(
-                            mapOf(
-                                "privateKey" to pair.privateKey.toBase64(),
-                                "publicKey" to pair.publicKey.toBase64(),
-                            ),
-                        )
-                    } catch (error: Throwable) {
-                        result.error(
-                            "KEY_GENERATION",
-                            error.message ?: error.javaClass.simpleName,
-                            Log.getStackTraceString(error),
-                        )
-                    }
-                }
-                "openAndCapture" -> openWarpGen(
-                    call.argument<String>("url") ?: "https://warp-gen1.vercel.app/",
-                    result,
-                )
-                else -> result.notImplemented()
-            }
-        }
-    }
-
-    private fun openWarpGen(url: String, result: MethodChannel.Result) {
-        if (pendingWarpGenResult != null) {
-            result.error("WARPGEN_BUSY", "WarpGen уже открыт.", null)
-            return
-        }
-        pendingWarpGenResult = result
-        startActivityForResult(
-            Intent(this, WarpGenActivity::class.java).putExtra(WarpGenActivity.EXTRA_URL, url),
-            WARPGEN_REQUEST,
-        )
     }
 
     private fun probeNetwork(
@@ -646,16 +586,6 @@ class MainActivity : FlutterActivity() {
                 pending?.success(resultCode == Activity.RESULT_OK)
                 return
             }
-            WARPGEN_REQUEST -> {
-                val pending = pendingWarpGenResult
-                pendingWarpGenResult = null
-                if (resultCode == Activity.RESULT_OK) {
-                    pending?.success(data?.getStringExtra(WarpGenActivity.EXTRA_CONFIG))
-                } else {
-                    pending?.success(null)
-                }
-                return
-            }
         }
         super.onActivityResult(requestCode, resultCode, data)
     }
@@ -670,332 +600,6 @@ class MainActivity : FlutterActivity() {
     }
 }
 
-class WarpGenActivity : Activity(), DownloadListener {
-    companion object {
-        const val EXTRA_CONFIG = "warpgen_config"
-        const val EXTRA_URL = "warpgen_url"
-        private const val START_URL = "https://warp-gen1.vercel.app/"
-    }
-
-    private lateinit var webView: WebView
-    private val executor = Executors.newSingleThreadExecutor()
-    @Volatile
-    private var completed = false
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        webView = WebView(this)
-        webView.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-        )
-        setContentView(webView)
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = false
-        webView.settings.allowContentAccess = false
-        webView.webChromeClient = WebChromeClient()
-        webView.addJavascriptInterface(ConfigBridge(), "PokolenieBridge")
-        webView.setDownloadListener(this)
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                return handleNavigation(view, request.url.toString())
-            }
-
-            @Deprecated("Deprecated in Android SDK, retained for older WebView")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                return handleNavigation(view, url)
-            }
-
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                if (isAllowedPage(url)) installDownloadHook()
-            }
-        }
-        val requested = intent.getStringExtra(EXTRA_URL) ?: START_URL
-        webView.loadUrl(if (isAllowedPage(requested)) requested else START_URL)
-    }
-
-
-    private fun isAllowedPage(url: String?): Boolean {
-        if (url.isNullOrBlank()) return false
-        val parsed = try { android.net.Uri.parse(url) } catch (_: Throwable) { return false }
-        val host = parsed.host?.lowercase() ?: return false
-        return parsed.scheme == "https" &&
-            (host == "warpgen.net" || host == "warp-gen.github.io" ||
-                host == "warp-gen1.vercel.app")
-    }
-
-    private fun handleNavigation(view: WebView, url: String): Boolean {
-        if (url.startsWith("blob:") || url.startsWith("data:")) {
-            if (isAllowedPage(view.url)) captureBrowserUrl(url)
-            return true
-        }
-        return !isAllowedPage(url)
-    }
-
-    override fun onDownloadStart(
-        url: String,
-        userAgent: String,
-        contentDisposition: String,
-        mimetype: String,
-        contentLength: Long,
-    ) {
-        if (isAllowedPage(webView.url)) captureBrowserUrl(url, userAgent)
-    }
-
-    private fun installDownloadHook() {
-        if (!isAllowedPage(webView.url)) return
-        val script = """
-            (() => {
-              if (window.__pokolenieHooked) return;
-              window.__pokolenieHooked = true;
-              const looksLikeConfig = (text) =>
-                typeof text === 'string' && text.length >= 80 && text.length <= 250000 &&
-                (/\[Interface\]/i.test(text) || /PrivateKey/i.test(text) || /AllowedIPs/i.test(text));
-              const deliver = (text) => {
-                if (looksLikeConfig(text)) PokolenieBridge.deliverText(text);
-              };
-              const inspectPage = () => {
-                deliver(document.body ? document.body.innerText : '');
-                document.querySelectorAll('textarea, pre, code, input').forEach((element) => {
-                  deliver(element.value || element.textContent || '');
-                });
-              };
-              try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                  const originalWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-                  navigator.clipboard.writeText = (text) => {
-                    deliver(String(text || ''));
-                    return originalWriteText(text);
-                  };
-                }
-              } catch (_) {}
-              try {
-                const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
-                URL.createObjectURL = (object) => {
-                  const generatedUrl = originalCreateObjectUrl(object);
-                  if (object instanceof Blob) {
-                    object.text().then(deliver).catch(() => {});
-                  }
-                  return generatedUrl;
-                };
-              } catch (_) {}
-              document.addEventListener('click', (event) => {
-                const link = event.target && event.target.closest ? event.target.closest('a') : null;
-                if (!link || !link.href) {
-                  setTimeout(inspectPage, 700);
-                  return;
-                }
-                if (link.href.startsWith('blob:') || link.href.startsWith('data:')) {
-                  event.preventDefault();
-                  fetch(link.href).then(r => r.text()).then(deliver).catch(() => {});
-                } else {
-                  setTimeout(inspectPage, 700);
-                }
-              }, true);
-              new MutationObserver(inspectPage).observe(document.documentElement, {
-                childList: true,
-                subtree: true,
-                characterData: true,
-                attributes: true,
-              });
-              setInterval(inspectPage, 1200);
-              inspectPage();
-            })();
-        """.trimIndent()
-        webView.evaluateJavascript(script, null)
-    }
-
-    private fun captureBrowserUrl(url: String, userAgent: String = webView.settings.userAgentString) {
-        when {
-            url.startsWith("blob:") -> {
-                val quoted = org.json.JSONObject.quote(url)
-                val script = "fetch($quoted).then(r=>r.text()).then(t=>PokolenieBridge.deliverText(t)).catch(()=>{});"
-                webView.evaluateJavascript(script, null)
-            }
-            url.startsWith("data:") -> {
-                executor.execute {
-                    try {
-                        val payload = decodeDataUrl(url)
-                        finishWithConfig(payload)
-                    } catch (_: Throwable) {}
-                }
-            }
-            else -> executor.execute {
-                if (!isAllowedPage(url)) return@execute
-                try {
-                    val connection = URL(url).openConnection() as HttpURLConnection
-                    connection.instanceFollowRedirects = true
-                    connection.connectTimeout = 20_000
-                    connection.readTimeout = 20_000
-                    connection.setRequestProperty("User-Agent", userAgent)
-                    CookieManager.getInstance().getCookie(url)?.let {
-                        connection.setRequestProperty("Cookie", it)
-                    }
-                    val text = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                    finishWithConfig(text)
-                } catch (error: Throwable) {
-                    Log.w("Pokolenie/WarpGen", "Download interception failed", error)
-                }
-            }
-        }
-    }
-
-    private fun decodeDataUrl(url: String): String {
-        val comma = url.indexOf(',')
-        require(comma > 0) { "Invalid data URL" }
-        val metadata = url.substring(0, comma)
-        val payload = url.substring(comma + 1)
-        return if (metadata.contains(";base64")) {
-            String(Base64.decode(payload, Base64.DEFAULT), Charsets.UTF_8)
-        } else {
-            URLDecoder.decode(payload, "UTF-8")
-        }
-    }
-
-    private fun collectEmbeddedStrings(value: Any?, output: MutableList<String>) {
-        when (value) {
-            is String -> if (value.isNotBlank()) output += value
-            is org.json.JSONObject -> {
-                val keys = value.keys()
-                while (keys.hasNext()) collectEmbeddedStrings(value.opt(keys.next()), output)
-            }
-            is org.json.JSONArray -> {
-                for (index in 0 until value.length()) {
-                    collectEmbeddedStrings(value.opt(index), output)
-                }
-            }
-        }
-    }
-
-    private fun extractPlainConfig(raw: String): String? {
-        val normalized = raw.replace("\r\n", "\n")
-        val allowed = setOf(
-            "privatekey", "address", "dns", "mtu", "listenport", "table", "fwmark",
-            "jc", "jmin", "jmax", "s1", "s2", "s3", "s4",
-            "h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5",
-            "publickey", "presharedkey", "allowedips", "endpoint",
-            "persistentkeepalive", "reserved",
-        )
-        val output = mutableListOf<String>()
-        var section = ""
-        var sawInterface = false
-        var sawPeer = false
-        for (rawLine in normalized.lines()) {
-            val line = rawLine.trim()
-            if (line.equals("[Interface]", ignoreCase = true)) {
-                if (sawInterface) break
-                section = "interface"
-                sawInterface = true
-                output += "[Interface]"
-                continue
-            }
-            if (line.equals("[Peer]", ignoreCase = true) && sawInterface) {
-                if (sawPeer) break
-                section = "peer"
-                sawPeer = true
-                output += ""
-                output += "[Peer]"
-                continue
-            }
-            if (section.isEmpty()) continue
-            if (line.startsWith("[") && line.endsWith("]")) {
-                if (sawPeer) break
-                continue
-            }
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) continue
-            val separator = line.indexOf('=')
-            if (separator <= 0) continue
-            val key = line.substring(0, separator).trim().lowercase()
-            if (key in allowed) output += line
-        }
-        if (!sawInterface || !sawPeer) return null
-        val result = output.joinToString("\n").trim()
-        val required = listOf("privatekey", "publickey", "allowedips", "endpoint", "address")
-        val present = result.lines().mapNotNull { line ->
-            val separator = line.indexOf('=')
-            if (separator <= 0) null else line.substring(0, separator).trim().lowercase()
-        }.toSet()
-        if (!present.containsAll(required)) return null
-        return "$result\n"
-    }
-
-    private fun extractConfig(raw: String): String? {
-        val queue = mutableListOf(raw)
-        val seen = mutableSetOf<String>()
-        var inspected = 0
-        while (queue.isNotEmpty() && inspected < 80) {
-            val candidate = queue.removeAt(0).trim()
-            if (candidate.isEmpty() || !seen.add(candidate)) continue
-            inspected += 1
-            extractPlainConfig(candidate)?.let { return it }
-
-            val unescaped = candidate
-                .replace("\\r\\n", "\n")
-                .replace("\\n", "\n")
-                .replace("&#91;", "[")
-                .replace("&#93;", "]")
-                .replace("&lbrack;", "[")
-                .replace("&rbrack;", "]")
-                .replace("&equals;", "=")
-                .replace("&amp;", "&")
-            if (unescaped != candidate) queue += unescaped
-
-            try {
-                val decodedJson = org.json.JSONTokener(candidate).nextValue()
-                collectEmbeddedStrings(decodedJson, queue)
-            } catch (_: Throwable) {}
-
-            val compact = candidate.replace(Regex("\\s+"), "")
-            if (compact.length in 80..200000 &&
-                compact.matches(Regex("^[A-Za-z0-9+/_=-]+$"))) {
-                try {
-                    queue += String(Base64.decode(compact, Base64.DEFAULT), Charsets.UTF_8)
-                } catch (_: Throwable) {}
-            }
-        }
-        return null
-    }
-
-    private fun finishWithConfig(raw: String) {
-        val config = extractConfig(raw) ?: return
-        if (completed) return
-        completed = true
-        runOnUiThread {
-            setResult(
-                RESULT_OK,
-                Intent().putExtra(EXTRA_CONFIG, config),
-            )
-            finish()
-        }
-    }
-
-    inner class ConfigBridge {
-        @JavascriptInterface
-        fun deliverText(text: String) {
-            runOnUiThread {
-                if (isAllowedPage(webView.url)) finishWithConfig(text)
-            }
-        }
-    }
-
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            setResult(RESULT_CANCELED)
-            super.onBackPressed()
-        }
-    }
-
-    override fun onDestroy() {
-        webView.removeJavascriptInterface("PokolenieBridge")
-        webView.destroy()
-        executor.shutdownNow()
-        super.onDestroy()
-    }
-}
 ''',
         encoding="utf-8",
     )

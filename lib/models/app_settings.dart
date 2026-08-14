@@ -23,10 +23,8 @@ class AppSettings {
     this.adaptiveMtu = false,
     this.splitTunnelMode = SplitTunnelMode.off,
     this.splitTunnelPackages = const <String>[],
-    this.autoGenerateWarp = true,
-    this.warpPoolSize = 6,
     this.remoteCatalogUrl =
-        'https://raw.githubusercontent.com/CTPAXlost/Pokolenie/main/catalog/public_catalog.json',
+        'https://raw.githubusercontent.com/CTPAXlost/BPM/main/catalog/public_catalog.json',
   });
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -72,11 +70,9 @@ class AppSettings {
               .where((value) => value.isNotEmpty)
               .toSet()
               .toList(),
-      autoGenerateWarp: json['auto_generate_warp'] != false,
-      warpPoolSize: readInt('warp_pool_size', 6).clamp(1, 12).toInt(),
-      remoteCatalogUrl:
-          json['remote_catalog_url']?.toString() ??
-          'https://raw.githubusercontent.com/CTPAXlost/Pokolenie/main/catalog/public_catalog.json',
+      remoteCatalogUrl: _migrateCatalogUrl(
+        json['remote_catalog_url']?.toString(),
+      ),
     );
   }
 
@@ -101,9 +97,16 @@ class AppSettings {
   final bool adaptiveMtu;
   final SplitTunnelMode splitTunnelMode;
   final List<String> splitTunnelPackages;
-  final bool autoGenerateWarp;
-  final int warpPoolSize;
   final String remoteCatalogUrl;
+
+  static String _migrateCatalogUrl(String? value) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty ||
+        normalized.contains('CTPAXlost/Pokolenie/')) {
+      return 'https://raw.githubusercontent.com/CTPAXlost/BPM/main/catalog/public_catalog.json';
+    }
+    return normalized;
+  }
 
   AppSettings copyWith({
     int? mtu,
@@ -127,8 +130,6 @@ class AppSettings {
     bool? adaptiveMtu,
     SplitTunnelMode? splitTunnelMode,
     List<String>? splitTunnelPackages,
-    bool? autoGenerateWarp,
-    int? warpPoolSize,
     String? remoteCatalogUrl,
   }) {
     return AppSettings(
@@ -155,8 +156,6 @@ class AppSettings {
       adaptiveMtu: adaptiveMtu ?? this.adaptiveMtu,
       splitTunnelMode: splitTunnelMode ?? this.splitTunnelMode,
       splitTunnelPackages: splitTunnelPackages ?? this.splitTunnelPackages,
-      autoGenerateWarp: autoGenerateWarp ?? this.autoGenerateWarp,
-      warpPoolSize: warpPoolSize ?? this.warpPoolSize,
       remoteCatalogUrl: remoteCatalogUrl ?? this.remoteCatalogUrl,
     );
   }
@@ -183,8 +182,6 @@ class AppSettings {
     'adaptive_mtu': adaptiveMtu,
     'split_tunnel_mode': splitTunnelMode.name,
     'split_tunnel_packages': splitTunnelPackages,
-    'auto_generate_warp': autoGenerateWarp,
-    'warp_pool_size': warpPoolSize,
     'remote_catalog_url': remoteCatalogUrl,
   };
 }

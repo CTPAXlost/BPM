@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pokolenie_vpn/models/vpn_protocol.dart';
@@ -215,6 +216,22 @@ void main() {
     expect(node, isNotNull);
     expect(node!.metadata['engine'], 'amneziawg');
     expect(NodeParser.catalogCompatibilityError(node), isNull);
+  });
+
+  test('imports all bundled WARP STR profiles and normalizes addresses', () {
+    for (final name in <String>[
+      'WARP_STR8605.conf',
+      'WARP_STR4470.conf',
+      'WARP_STR6230.conf',
+    ]) {
+      final raw = File('assets/warp/$name').readAsStringSync();
+      final node = NodeParser.parse(raw, source: 'Bundled WARP');
+      expect(node, isNotNull, reason: name);
+      expect(NodeParser.catalogCompatibilityError(node!), isNull, reason: name);
+      expect(node.rawConfig, contains('172.16.0.2/32'), reason: name);
+      expect(node.rawConfig, contains('/128'), reason: name);
+      expect(node.rawConfig, contains('I1 = <'), reason: name);
+    }
   });
 
 }

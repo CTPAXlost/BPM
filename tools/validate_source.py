@@ -7,8 +7,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_VERSION = "0.9.1"
-EXPECTED_BUILD = "91"
+EXPECTED_VERSION = "0.9.2"
+EXPECTED_BUILD = "92"
 
 
 def read(relative: str) -> str:
@@ -31,7 +31,6 @@ def validate_required(errors: list[str]) -> None:
         "lib/services/catalog_service.dart",
         "lib/services/latency_service.dart",
         "lib/services/storage_service.dart",
-        "lib/services/warpgen_bridge.dart",
         "lib/screens/home_screen.dart",
         "lib/screens/servers_screen.dart",
         "lib/screens/warp_screen.dart",
@@ -42,6 +41,9 @@ def validate_required(errors: list[str]) -> None:
         ".github/workflows/build.yml",
         "catalog/sources.json",
         "catalog/public_catalog.json",
+        "assets/warp/WARP_STR8605.conf",
+        "assets/warp/WARP_STR4470.conf",
+        "assets/warp/WARP_STR6230.conf",
     )
     for relative in required:
         check((ROOT / relative).is_file(), f"Missing required file: {relative}", errors)
@@ -67,7 +69,7 @@ def validate_version(errors: list[str]) -> None:
     pubspec = read("pubspec.yaml")
     check(
         f"version: {EXPECTED_VERSION}+{EXPECTED_BUILD}" in pubspec,
-        "pubspec version is not 0.9.1+91",
+        "pubspec version is not 0.9.2+92",
         errors,
     )
     check("window_manager" not in pubspec, "Desktop dependency remains", errors)
@@ -83,7 +85,6 @@ def validate_architecture(errors: list[str]) -> None:
     controller = read("lib/services/app_controller.dart")
     core = read("lib/core/android_vpn_core.dart")
     latency = read("lib/services/latency_service.dart")
-    warp = read("lib/services/warpgen_bridge.dart")
     shell = read("lib/screens/app_shell.dart")
     workflow = read(".github/workflows/build.yml")
 
@@ -98,8 +99,9 @@ def validate_architecture(errors: list[str]) -> None:
     check("removeAfterFailures" in controller, "Removal threshold is missing", errors)
     check("hasBaseInternet" in controller, "Base internet guard is missing", errors)
     check("core.test(node, timeout" in latency, "Latency service does not delegate real probes", errors)
-    check("portalWg" in warp and "warpGenNet" in warp and "warpGenGithub" in warp, "WARP sources are incomplete", errors)
-    check("openAndCapture" in warp, "Single WARP capture bridge is missing", errors)
+    check("generateWarpPool" not in controller, "Retired WARP generator remains", errors)
+    check("importWarpFromWebsite" not in controller, "Retired WARP website import remains", errors)
+    check("final file = await openFile();" in controller, "Unrestricted Android config picker is missing", errors)
     check("Windows" not in workflow and "windows:" not in workflow, "Windows CI job remains", errors)
     check("prepare_android.py" in workflow, "Android patcher is not used", errors)
     check("flutter build apk" in workflow, "Android APK build is missing", errors)
@@ -107,7 +109,7 @@ def validate_architecture(errors: list[str]) -> None:
     patcher = read("tools/prepare_android.py")
     check("usesCleartextTraffic=\"true\"" not in patcher, "Android cleartext traffic is enabled", errors)
     check("QUERY_ALL_PACKAGES" not in patcher, "Broad package visibility permission remains", errors)
-    check("import android.util.Base64" in patcher, "Generated Kotlin misses Base64 import", errors)
+    check("WarpGenActivity" not in patcher, "Retired WarpGen Android activity remains", errors)
 
 
 def validate_catalog(errors: list[str]) -> None:
@@ -247,7 +249,7 @@ def main() -> None:
         for error in errors:
             print(f"ERROR: {error}")
         raise SystemExit(1)
-    print("Pokolenie VPN 0.9.1 Android source validation: OK")
+    print("Pokolenie VPN 0.9.2 Android source validation: OK")
 
 
 if __name__ == "__main__":

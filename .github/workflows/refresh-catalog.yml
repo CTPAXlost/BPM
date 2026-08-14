@@ -5,11 +5,8 @@ on:
   schedule:
     - cron: '17 * * * *'
 
-# The catalog is validated every hour but is no longer committed to main.
-# Fresh profiles are still generated for every APK build and refreshed
-# inside the application at startup, on schedule, and by the update button.
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: refresh-pokolenie-catalog
@@ -37,12 +34,28 @@ jobs:
           data = json.loads(Path('catalog/public_catalog.json').read_text(encoding='utf-8'))
           nodes = data.get('nodes', [])
           counts = data.get('counts', {})
+          whitelist_counts = data.get('whitelist_counts', {})
           if not nodes:
               raise SystemExit('Generated catalog is empty')
-          if any(int(value) > 50 for value in counts.values()):
+          regular = {key: value for key, value in counts.items() if key != 'whitelist'}
+          if any(int(value) > 50 for value in regular.values()):
               raise SystemExit(f'Protocol limit exceeded: {counts}')
+          if any(int(value) > 50 for value in whitelist_counts.values()):
+              raise SystemExit(f'Whitelist subtype limit exceeded: {whitelist_counts}')
           print(f'Validated nodes: {len(nodes)}')
           print(f'Counts: {counts}')
+          print(f'Whitelist counts: {whitelist_counts}')
+      - name: Publish catalog to main
+        run: |
+          if git diff --quiet -- catalog/public_catalog.json; then
+            echo "Catalog is unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog/public_catalog.json
+          git commit -m "chore: refresh public VPN catalog"
+          git push
       - name: Upload hourly validation artifact
         uses: actions/upload-artifact@v4
         with:

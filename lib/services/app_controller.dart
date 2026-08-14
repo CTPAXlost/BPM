@@ -15,24 +15,18 @@ import '../utils/node_parser.dart';
 import 'catalog_service.dart';
 import 'latency_service.dart';
 import 'storage_service.dart';
-import 'warp_provisioning_service.dart';
-import 'warpgen_bridge.dart';
 
 class AppController extends ChangeNotifier {
   AppController()
     : core = createVpnCore(),
       storage = StorageService(),
-      catalog = CatalogService(),
-      warpGen = WarpGenBridge(),
-      warpProvisioning = WarpProvisioningService() {
+      catalog = CatalogService() {
     latency = LatencyService(core);
   }
 
   final VpnCore core;
   final StorageService storage;
   final CatalogService catalog;
-  final WarpGenBridge warpGen;
-  final WarpProvisioningService warpProvisioning;
   late final LatencyService latency;
 
   AppSettings settings = const AppSettings();
@@ -48,9 +42,10 @@ class AppController extends ChangeNotifier {
   bool loading = true;
   bool refreshing = false;
   bool testingAll = false;
-  bool importingWarpGen = false;
+  bool importingWarp = false;
   int testingCompleted = 0;
   int testingTotal = 0;
+  List<String> _testingOrder = const <String>[];
   String? message;
   DateTime? lastRefresh;
 
@@ -79,7 +74,11 @@ class AppController extends ChangeNotifier {
     final result = nodes
         .where((node) => node.protocol == VpnProtocol.warp)
         .toList();
-    result.sort((a, b) => a.routeScore.compareTo(b.routeScore));
+    if (testingAll) {
+      result.sort(_compareFrozenTestOrder);
+    } else {
+      result.sort((a, b) => a.routeScore.compareTo(b.routeScore));
+    }
     return result;
   }
 
@@ -125,7 +124,7 @@ class AppController extends ChangeNotifier {
           node.source.toLowerCase().contains(query) ||
           node.protocol.label.toLowerCase().contains(query);
     }).toList();
-    filtered.sort(_compareNodes);
+    filtered.sort(testingAll ? _compareFrozenTestOrder : _compareNodes);
     return filtered;
   }
 
@@ -137,6 +136,15 @@ class AppController extends ChangeNotifier {
     return a.routeScore.compareTo(b.routeScore);
   }
 
+  int _compareFrozenTestOrder(VpnNode a, VpnNode b) {
+    final aIndex = _testingOrder.indexOf(a.id);
+    final bIndex = _testingOrder.indexOf(b.id);
+    if (aIndex < 0 && bIndex < 0) return _compareNodes(a, b);
+    if (aIndex < 0) return 1;
+    if (bIndex < 0) return -1;
+    return aIndex.compareTo(bIndex);
+  }
+
   Future<void> initialize() async {
     loading = true;
     notifyListeners();
@@ -146,9 +154,14 @@ class AppController extends ChangeNotifier {
         ..clear()
         ..addAll(await storage.loadQuarantinedNodes());
       _pruneQuarantine();
-      nodes = (await storage.loadNodes())
+      final storedNodes = await storage.loadNodes();
+      nodes = storedNodes
           .where((node) => !_isQuarantined(node.id))
+          .where((node) => !_isRetiredGeneratedWarp(node))
           .toList();
+      if (nodes.length != storedNodes.length) {
+        await storage.saveNodes(nodes);
+      }
       final savedSources = await storage.loadSources();
       final bundledSources = await catalog.loadBundledSources();
       sources = _mergeSources(savedSources, bundledSources);
@@ -157,8 +170,15 @@ class AppController extends ChangeNotifier {
       lastRefresh = await storage.loadLastRefresh();
       if (nodes.isEmpty) {
         nodes = await catalog.loadBundledCatalog();
-        await storage.saveNodes(nodes);
       }
+      final bundledWarp = await catalog.loadBundledWarpConfigs();
+      final knownIds = nodes.map((node) => node.id).toSet();
+      nodes.addAll(
+        bundledWarp.where(
+          (node) => !knownIds.contains(node.id) && !_isQuarantined(node.id),
+        ),
+      );
+      await storage.saveNodes(nodes);
       if (!nodes.any((node) => node.id == selectedNodeId)) {
         selectedNodeId = null;
       }
@@ -179,15 +199,20 @@ class AppController extends ChangeNotifier {
       if (settings.autoRefresh) {
         unawaited(refreshCatalog(silent: true));
       }
-      if (settings.autoGenerateWarp && warpNodes.isEmpty) {
-        unawaited(generateWarpPool(silent: true));
-      }
     } catch (error) {
       message = 'Приложение запущено в безопасном режиме: $error';
     } finally {
       loading = false;
       notifyListeners();
     }
+  }
+
+  bool _isRetiredGeneratedWarp(VpnNode node) {
+    if (node.protocol != VpnProtocol.warp) return false;
+    final source = node.source.toLowerCase();
+    return node.metadata['auto_generated'] == true ||
+        source.contains('автоматический warp') ||
+        source.contains('endpoint rotation');
   }
 
   void selectProtocol(VpnProtocol? protocol) {
@@ -595,6 +620,8 @@ class AppController extends ChangeNotifier {
       return;
     }
 
+    final frozen = List<VpnNode>.of(nodes)..sort(_compareNodes);
+    _testingOrder = frozen.map((node) => node.id).toList(growable: false);
     testingAll = true;
     testingCompleted = 0;
     testingTotal = queue.length;
@@ -610,6 +637,7 @@ class AppController extends ChangeNotifier {
     );
     if (!baseAvailable) {
       testingAll = false;
+      _testingOrder = const <String>[];
       testingCompleted = 0;
       testingTotal = 0;
       if (showSummary) {
@@ -663,6 +691,7 @@ class AppController extends ChangeNotifier {
       if (showSummary) message = 'Проверка завершилась с ошибкой: $error';
     } finally {
       testingAll = false;
+      _testingOrder = const <String>[];
       notifyListeners();
     }
   }
@@ -835,96 +864,13 @@ class AppController extends ChangeNotifier {
     await storage.saveLastRefresh(lastRefresh!);
   }
 
-  bool get warpWebsiteCaptureSupported => warpGen.supported;
-
-  Future<int> generateWarpPool({bool silent = false}) async {
-    if (importingWarpGen) return 0;
-    importingWarpGen = true;
-    if (!silent) message = null;
-    notifyListeners();
-    try {
-      final configs = await warpProvisioning.generate(
-        count: settings.warpPoolSize,
-      );
-      final additions = <VpnNode>[];
-      for (var index = 0; index < configs.length; index++) {
-        final parsed = _parseOneWarp(
-          configs[index],
-          'Автоматический WARP / endpoint rotation',
-        );
-        additions.add(
-          parsed.copyWith(
-            name: 'WARP Auto ${index + 1} · ${parsed.endpoint}',
-            metadata: <String, dynamic>{
-              ...parsed.metadata,
-              'auto_generated': true,
-              'endpoint_variant': index + 1,
-            },
-          ),
-        );
-      }
-      nodes = CatalogService.capAndDedupe(<VpnNode>[
-        ...additions,
-        ...nodes,
-      ], maxPerProtocol: settings.maxPerProtocol);
-      if (additions.isNotEmpty) {
-        selectedNodeId = additions.first.id;
-        await storage.saveSelectedNodeId(selectedNodeId);
-      }
-      await storage.saveNodes(nodes);
-      if (!silent) {
-        message =
-            'Создано ${additions.length} WARP-вариантов. Нажми '
-            '«Проверить все WARP», чтобы оставить только рабочие.';
-      }
-      return additions.length;
-    } catch (error) {
-      if (!silent) message = 'Автогенерация WARP не выполнена: $error';
-      return 0;
-    } finally {
-      importingWarpGen = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> importWarpFromWebsite({
-    required String url,
-    required String sourceName,
-  }) async {
-    if (importingWarpGen) return;
-    importingWarpGen = true;
-    message = null;
-    notifyListeners();
-    try {
-      final raw = await warpGen.openAndCapture(url);
-      if (raw == null) {
-        message = 'Получение WARP отменено.';
-        return;
-      }
-      final node = _parseOneWarp(raw, sourceName);
-      await _storeWarp(node);
-      message =
-          'Добавлен один WARP-конфиг с $sourceName. '
-          'VPN не включался; нажми «Подключить», когда захочешь его использовать.';
-    } catch (error) {
-      message = 'Не удалось получить WARP с $sourceName: $error';
-    } finally {
-      importingWarpGen = false;
-      notifyListeners();
-    }
-  }
-
   Future<int> importWarpFile() async {
-    if (importingWarpGen) return 0;
-    importingWarpGen = true;
+    if (importingWarp) return 0;
+    importingWarp = true;
     message = null;
     notifyListeners();
     try {
-      const typeGroup = XTypeGroup(
-        label: 'WireGuard / AmneziaWG',
-        extensions: <String>['conf', 'txt', 'wg', 'awg'],
-      );
-      final file = await openFile(acceptedTypeGroups: <XTypeGroup>[typeGroup]);
+      final file = await openFile();
       if (file == null) return 0;
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) throw StateError('Выбранный файл пустой.');
@@ -938,13 +884,16 @@ class AppController extends ChangeNotifier {
       message = 'Не удалось импортировать WARP: $error';
       return 0;
     } finally {
-      importingWarpGen = false;
+      importingWarp = false;
       notifyListeners();
     }
   }
 
   VpnNode _parseOneWarp(String raw, String sourceName) {
-    final config = NodeParser.extractSingleWgQuick(raw) ?? raw;
+    final normalized = raw.replaceFirst('\uFEFF', '').replaceAll('\r\n', '\n');
+    final config = NodeParser.looksLikeWgQuick(normalized)
+        ? normalized.trim()
+        : (NodeParser.extractSingleWgQuick(normalized) ?? normalized);
     final node = NodeParser.parse(config, source: sourceName);
     if (node == null || node.protocol != VpnProtocol.warp) {
       throw const FormatException(
@@ -1138,7 +1087,6 @@ class AppController extends ChangeNotifier {
     latency.dispose();
     unawaited(core.dispose());
     catalog.dispose();
-    warpProvisioning.dispose();
     super.dispose();
   }
 }

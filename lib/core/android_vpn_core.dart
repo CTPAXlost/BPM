@@ -23,6 +23,7 @@ class AndroidVpnCore implements VpnCore {
   VpnCoreState _state = VpnCoreState.disconnected;
   bool _singboxReady = false;
   bool _usingAwg = false;
+  bool _silentProbe = false;
   Object? _singboxInitError;
 
   @override
@@ -36,7 +37,7 @@ class AndroidVpnCore implements VpnCore {
 
   void _emit(VpnCoreState value) {
     _state = value;
-    if (!_states.isClosed) _states.add(value);
+    if (!_silentProbe && !_states.isClosed) _states.add(value);
   }
 
   @override
@@ -238,6 +239,7 @@ class AndroidVpnCore implements VpnCore {
     }
 
     final started = DateTime.now();
+    _silentProbe = true;
     try {
       await connect(node, settings);
       final elapsed = DateTime.now().difference(started);
@@ -283,6 +285,7 @@ class AndroidVpnCore implements VpnCore {
       } catch (_) {
         // Best-effort cleanup after an isolated full-tunnel probe.
       }
+      _silentProbe = false;
     }
   }
 

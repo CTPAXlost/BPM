@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../models/vpn_node.dart';
 import '../services/app_controller.dart';
-import '../services/warpgen_bridge.dart';
 import '../theme/app_theme.dart';
 import '../widgets/aurora_background.dart';
 import '../widgets/node_card.dart';
@@ -28,8 +27,8 @@ class WarpScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 const Text(
-                  'Автогенерация создаёт ключи прямо на устройстве. Реальная '
-                  'проверка кратко поднимает WARP-туннель и измеряет HTTPS.',
+                  'Загружай готовые WireGuard/AmneziaWG-конфиги. Проверка '
+                  'кратко поднимает туннель и подтверждает HTTPS через него.',
                   style: TextStyle(color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 16),
@@ -126,7 +125,7 @@ class _ImportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final busy = controller.importingWarpGen;
+    final busy = controller.importingWarp;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -149,54 +148,17 @@ class _ImportCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Источник Portal WG добавлен напрямую: сгенерируй конфиг в окне '
-            'и приложение перехватит его для импорта.',
+            'Выбери готовый файл конфигурации. Android-проводники часто не '
+            'сообщают расширение файла, поэтому фильтр форматов отключён.',
             style: TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: busy
-                  ? null
-                  : () => controller.importWarpFromWebsite(
-                      url: WarpGenBridge.portalWg,
-                      sourceName: 'Portal WG',
-                    ),
-              icon: const Icon(Icons.bolt_rounded),
-              label: const Text('Получить WARP как в Portal WG'),
-            ),
-          ),
-          const SizedBox(height: 9),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () => controller.importWarpFromWebsite(
-                      url: WarpGenBridge.warpGenNet,
-                      sourceName: 'WarpGen.net',
-                    ),
-              icon: const Icon(Icons.language_rounded),
-              label: const Text('Резерв: WarpGen.net'),
-            ),
-          ),
-          const SizedBox(height: 9),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : controller.generateWarpPool,
-              icon: const Icon(Icons.auto_awesome_rounded),
-              label: const Text('Прямая автогенерация (экспериментально)'),
-            ),
-          ),
-          const SizedBox(height: 9),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
               onPressed: busy ? null : controller.importWarpFile,
               icon: const Icon(Icons.file_open_rounded),
-              label: const Text('Импортировать .conf / .wg / .awg'),
+              label: const Text('Выбрать файл конфигурации'),
             ),
           ),
           if (busy) ...<Widget>[
