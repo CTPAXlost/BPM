@@ -7,6 +7,36 @@ import '../models/vpn_node.dart';
 import '../utils/node_parser.dart';
 import 'vpn_core.dart';
 
+/// Produces one Windows command-line string for `ProcessStartInfo.Arguments`.
+/// Backslashes before a quote (and at the end) must be doubled according to
+/// the CommandLineToArgvW convention. Passing a PowerShell String[] is not
+/// sufficient because Start-Process joins it and loses quotes around paths.
+String buildWindowsArgumentLine(List<String> arguments) {
+  String quoteArgument(String argument) {
+    final result = StringBuffer('"');
+    var backslashes = 0;
+    for (final codeUnit in argument.codeUnits) {
+      if (codeUnit == 0x5c) {
+        backslashes++;
+        continue;
+      }
+      if (codeUnit == 0x22) {
+        result.write('\\' * (backslashes * 2 + 1));
+        result.write('"');
+      } else {
+        result.write('\\' * backslashes);
+        result.writeCharCode(codeUnit);
+      }
+      backslashes = 0;
+    }
+    result.write('\\' * (backslashes * 2));
+    result.write('"');
+    return result.toString();
+  }
+
+  return arguments.map(quoteArgument).join(' ');
+}
+
 /// Windows host for the official AmneziaWG tunnel service. It deliberately
 /// refuses to fake Android package split tunnelling: Windows app filtering
 /// requires a separately audited WFP driver.
@@ -144,9 +174,9 @@ class WindowsVpnCore implements VpnCore {
     final executable = _amneziaExe;
     if (executable == null) throw StateError(_runtimeMissing);
     String quote(String value) => "'${value.replaceAll("'", "''")}'";
-    final argumentList = arguments.map(quote).join(',');
+    final argumentLine = buildWindowsArgumentLine(arguments);
     final script = r'$p=Start-Process -FilePath ' + quote(executable) +
-        ' -ArgumentList @($argumentList) -Verb RunAs -WindowStyle Hidden -Wait -PassThru' +
+        ' -ArgumentList ${quote(argumentLine)} -Verb RunAs -WindowStyle Hidden -Wait -PassThru' +
         r'; exit $p.ExitCode';
     final bytes = <int>[];
     for (final unit in script.codeUnits) { bytes..add(unit & 0xff)..add(unit >> 8); }
