@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../core/core_factory.dart';
 import '../core/vpn_core.dart';
@@ -13,6 +14,11 @@ import 'storage_service.dart';
 import 'warp_generator_service.dart';
 
 class AppController extends ChangeNotifier {
+  static const _bundledWarpAssets = <String>[
+    'assets/warp/WARP_STR5118.conf',
+    'assets/warp/WARP_STR8605.conf',
+    'assets/warp/WARP_STR4470.conf',
+  ];
   final VpnCore _core = createVpnCore();
   final StorageService _storage = StorageService();
   final WarpGeneratorService _generator = WarpGeneratorService();
@@ -69,6 +75,10 @@ class AppController extends ChangeNotifier {
       _lastWarpGeneration = await _storage.loadLastWarpGeneration();
       final saved = await _storage.loadNodes();
       _nodes = saved.where((node) => NodeParser.isCompatible(node)).toList();
+      if (!await _storage.loadBundledWarpSeeded()) {
+        await _seedBundledWarpProfiles();
+        await _storage.saveBundledWarpSeeded();
+      }
       _selectedNodeId = await _storage.loadSelectedNodeId();
       if (!_nodes.any((node) => node.id == _selectedNodeId)) _selectedNodeId = _nodes.isEmpty ? null : _nodes.first.id;
       await _storage.saveNodes(_nodes); // Migrates old VLESS/other records out.
@@ -86,6 +96,24 @@ class AppController extends ChangeNotifier {
   }
 
   void onAppResumed() => notifyListeners();
+
+  Future<void> _seedBundledWarpProfiles() async {
+    for (final asset in _bundledWarpAssets) {
+      try {
+        final raw = await rootBundle.loadString(asset);
+        final parsed = NodeParser.parse(raw, source: 'Стартовый WARP');
+        if (parsed == null || !NodeParser.isCompatible(parsed)) continue;
+        if (_nodes.any((node) => node.id == parsed.id)) continue;
+        final fileName = asset.split('/').last.replaceAll('.conf', '');
+        _nodes.add(parsed.copyWith(
+          name: fileName,
+          metadata: <String, dynamic>{...parsed.metadata, 'bundled_seed': true},
+        ));
+      } catch (_) {
+        // A damaged optional seed must not prevent the app from starting.
+      }
+    }
+  }
 
   Future<void> updateSettings(AppSettings value) async {
     _settings = value;
@@ -235,8 +263,10 @@ class AppController extends ChangeNotifier {
     if (_importingWarp || _generatingWarp || _testingAll || _probeInProgress) return;
     _importingWarp = true; notifyListeners();
     try {
-      const group = XTypeGroup(label: 'WARP config', extensions: <String>['conf', 'txt']);
-      final file = await openFile(acceptedTypeGroups: <XTypeGroup>[group]);
+      // Android document providers often do not publish a MIME type for .conf
+      // and would grey the file out. Read any selected file and validate its
+      // actual contents below.
+      final file = await openFile();
       if (file == null) return;
       final node = NodeParser.parse(await file.readAsString(), source: 'Импорт');
       if (node == null) throw const FormatException('файл не является WireGuard/AmneziaWG конфигом');

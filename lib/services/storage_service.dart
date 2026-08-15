@@ -8,6 +8,7 @@ class StorageService {
   static const _nodesKey = 'nodes_v2';
   static const _selectedKey = 'selected_node_v2';
   static const _lastWarpGenerationKey = 'last_warp_generation_v1';
+  static const _bundledWarpSeededKey = 'bundled_warp_seeded_v1';
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
   Future<AppSettings> loadSettings() async {
     final raw = (await _prefs).getString(_settingsKey);
@@ -31,4 +32,8 @@ class StorageService {
     return raw == null ? null : DateTime.tryParse(raw);
   }
   Future<void> saveLastWarpGeneration(DateTime value) async => (await _prefs).setString(_lastWarpGenerationKey, value.toIso8601String());
+  Future<bool> loadBundledWarpSeeded() async =>
+      (await _prefs).getBool(_bundledWarpSeededKey) ?? false;
+  Future<void> saveBundledWarpSeeded() async =>
+      (await _prefs).setBool(_bundledWarpSeededKey, true);
 }

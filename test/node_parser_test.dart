@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pokolenie_vpn/models/vpn_protocol.dart';
 import 'package:pokolenie_vpn/utils/node_parser.dart';
@@ -32,8 +33,39 @@ void main() {
     final node = NodeParser.parse(config.replaceFirst('1, 2, 3', '1, 999'))!;
     expect(NodeParser.validationError(node), contains('Reserved'));
   });
-  test('rejects missing address mask', () {
+  test('normalizes missing IPv4 address mask', () {
     final node = NodeParser.parse(config.replaceFirst('172.16.0.2/32', '172.16.0.2'))!;
-    expect(NodeParser.validationError(node), contains('Address'));
+    expect(NodeParser.validationError(node), isNull);
+    expect(node.rawConfig, contains('Address = 172.16.0.2/32'));
+  });
+  test('normalizes both bare IPv4 and IPv6 addresses', () {
+    final dual = config.replaceFirst(
+      '172.16.0.2/32',
+      '172.16.0.2, 2606:4700:110:8765::2',
+    );
+    final node = NodeParser.parse(dual)!;
+    expect(node.rawConfig, contains('172.16.0.2/32'));
+    expect(node.rawConfig, contains('2606:4700:110:8765::2/128'));
+    expect(NodeParser.validationError(node), isNull);
+  });
+  test('imports every bundled working WARP profile', () {
+    for (final name in <String>[
+      'WARP_STR5118.conf',
+      'WARP_STR8605.conf',
+      'WARP_STR4470.conf',
+    ]) {
+      final raw = File('assets/warp/$name').readAsStringSync();
+      final node = NodeParser.parse(raw, source: 'Стартовый WARP');
+      expect(node, isNotNull, reason: name);
+      expect(NodeParser.validationError(node!), isNull, reason: name);
+      final addressLine = node.rawConfig
+          .split('\n')
+          .firstWhere((line) => line.trimLeft().toLowerCase().startsWith('address'));
+      expect(
+        addressLine.split('=').last.split(',').every((item) => item.contains('/')),
+        isTrue,
+        reason: name,
+      );
+    }
   });
 }

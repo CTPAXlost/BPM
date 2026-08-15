@@ -40,8 +40,9 @@ class NodeParser {
   }
 
   static VpnNode? parse(String input, {String source = ''}) {
-    final config = extractSingleWgQuick(input);
-    if (config == null) return null;
+    final extracted = extractSingleWgQuick(input);
+    if (extracted == null) return null;
+    final config = _normaliseAddresses(extracted);
     final sections = _sections(config);
     final interface = sections['interface'];
     final peer = sections['peer'];
@@ -64,15 +65,16 @@ class NodeParser {
   }
 
   static String? validationError(VpnNode node) {
-    final config = extractSingleWgQuick(node.metadata['wg_quick']?.toString() ?? node.rawConfig);
-    if (config == null) return 'нет секций [Interface] и [Peer]';
+    final extracted = extractSingleWgQuick(node.metadata['wg_quick']?.toString() ?? node.rawConfig);
+    if (extracted == null) return 'нет секций [Interface] и [Peer]';
+    final config = _normaliseAddresses(extracted);
     final sections = _sections(config);
     final interface = sections['interface'] ?? const <String, String>{};
     final peer = sections['peer'] ?? const <String, String>{};
     if (!_validKey(interface['privatekey'])) return 'неверный PrivateKey';
     if (!_validKey(peer['publickey'])) return 'неверный PublicKey';
     final addresses = interface['address']?.split(',') ?? const <String>[];
-    if (addresses.isEmpty || addresses.every((e) => !e.trim().contains('/'))) return 'Address должен содержать маску подсети';
+    if (addresses.isEmpty || addresses.any((e) => !e.trim().contains('/'))) return 'не удалось определить маску Address';
     if (_parseEndpoint(peer['endpoint'] ?? '') == null) return 'неверный Endpoint';
     if ((peer['allowedips'] ?? '').trim().isEmpty) return 'нет AllowedIPs';
     final reserved = peer['reserved'];
@@ -87,6 +89,33 @@ class NodeParser {
 
   static String _normaliseText(String value) => value.replaceAll(r'\n', '\n').replaceAll('\r\n', '\n').replaceAll('\r', '\n').trim();
   static String _sliceConfig(String text) => '${text.substring(text.toLowerCase().indexOf('[interface]')).trim()}\n';
+
+  /// Portal WG and several Amnezia generators intentionally emit bare tunnel
+  /// addresses. WireGuard treats these as host addresses, so add the canonical
+  /// host prefix instead of rejecting an otherwise valid profile.
+  static String _normaliseAddresses(String config) {
+    var inInterface = false;
+    final output = <String>[];
+    for (final raw in config.split('\n')) {
+      final trimmed = raw.trim();
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        inInterface = trimmed.toLowerCase() == '[interface]';
+      }
+      final equals = raw.indexOf('=');
+      if (inInterface && equals > 0 && raw.substring(0, equals).trim().toLowerCase() == 'address') {
+        final indent = raw.substring(0, raw.length - raw.trimLeft().length);
+        final addresses = raw.substring(equals + 1).split(',').map((item) {
+          final address = item.trim();
+          if (address.isEmpty || address.contains('/')) return address;
+          return address.contains(':') ? '$address/128' : '$address/32';
+        }).where((item) => item.isNotEmpty).join(', ');
+        output.add('${indent}Address = $addresses');
+      } else {
+        output.add(raw);
+      }
+    }
+    return '${output.join('\n').trim()}\n';
+  }
 
   static Map<String, Map<String, String>> _sections(String config) {
     final result = <String, Map<String, String>>{};
