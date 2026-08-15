@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/app_settings.dart';
 import '../services/app_controller.dart';
 import '../theme/app_theme.dart';
-import '../widgets/aurora_background.dart';
 import '../widgets/android_app_selector.dart';
+import '../widgets/aurora_background.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
