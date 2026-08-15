@@ -5,11 +5,11 @@ Android `VpnService`; each needs a platform VPN host and entitlements.
 
 ## Windows
 
-Use the official embeddable `amneziawg-windows` tunnel service and expose a
-small Flutter method-channel API matching `AmneziaWgBridge`: start, stop, state,
-statistics and a VPN-bound HTTPS probe. Packaging must install/remove the
-service with administrator consent. The UI must not claim a connection before
-the service reports a live tunnel.
+Version 1.1 uses the official installed AmneziaWG Windows client as its runtime.
+It creates a named tunnel service with administrator consent, confirms the
+Windows service is RUNNING, validates HTTPS over the full route, and reads
+traffic via `awg show ... dump`. App-level split tunnelling still requires an
+audited WFP driver and is deliberately disabled rather than emulated.
 
 ## iOS
 

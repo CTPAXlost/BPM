@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/app_settings.dart';
@@ -20,23 +22,33 @@ class SettingsScreen extends StatelessWidget {
         SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Создать WARP, если список пуст'), value: s.autoGenerateWarp, onChanged: (v) => controller.updateSettings(s.copyWith(autoGenerateWarp: v))),
         SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Удалять нерабочие профили'), subtitle: const Text('Только после реальной HTTPS-проверки через туннель.'), value: s.autoRemoveUnavailable, onChanged: (v) => controller.updateSettings(s.copyWith(autoRemoveUnavailable: v))),
       ]),
-      _Section('Раздельное туннелирование Android', <Widget>[
+      _Section(Platform.isWindows ? 'Раздельное туннелирование Windows' : 'Раздельное туннелирование Android', <Widget>[
         DropdownButtonFormField<SplitTunnelMode>(initialValue: s.splitTunnelMode, decoration: const InputDecoration(labelText: 'Режим'), items: const <DropdownMenuItem<SplitTunnelMode>>[
           DropdownMenuItem(value: SplitTunnelMode.off, child: Text('Выключено')),
           DropdownMenuItem(value: SplitTunnelMode.include, child: Text('VPN только для выбранных')),
           DropdownMenuItem(value: SplitTunnelMode.exclude, child: Text('VPN для всех, кроме выбранных')),
         ], onChanged: (v) { if (v != null) controller.updateSettings(s.copyWith(splitTunnelMode: v)); }),
         const SizedBox(height: 10),
-        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () => _editPackages(context, controller), icon: const Icon(Icons.apps), label: Text('Приложения (${s.splitTunnelPackages.length})'))),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: Platform.isWindows ? null : () => _editPackages(context, controller), icon: const Icon(Icons.apps), label: Text('Приложения (${s.splitTunnelPackages.length})'))),
         const SizedBox(height: 8),
-        const Text('Указываются Android package ID, например com.google.android.youtube. Список передаётся напрямую в нативное AWG-ядро.', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        Text(
+          Platform.isWindows
+              ? 'В первой Windows-сборке доступен полный WARP-туннель. Разделение по приложениям заблокировано до интеграции отдельного WFP-драйвера.'
+              : 'Указываются Android package ID, например com.google.android.youtube. Список передаётся напрямую в нативное AWG-ядро.',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
       ]),
       _Section('Сеть', <Widget>[
         ListTile(contentPadding: EdgeInsets.zero, title: const Text('MTU'), subtitle: Slider(min: 1180, max: 1500, divisions: 32, value: s.mtu.toDouble(), label: '${s.mtu}', onChanged: (v) => controller.updateSettings(s.copyWith(mtu: v.round()))), trailing: Text('${s.mtu}')),
         ListTile(contentPadding: EdgeInsets.zero, title: const Text('DNS'), subtitle: Text(s.dns), trailing: const Icon(Icons.edit), onTap: () => _editDns(context, controller)),
         SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Локальная сеть мимо VPN'), value: s.bypassLan, onChanged: (v) => controller.updateSettings(s.copyWith(bypassLan: v))),
       ]),
-      const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Android: VPN и раздельное туннелирование работают через нативный AmneziaWG. Windows и iOS требуют отдельных нативных ядер; приложение не будет выдавать заглушку за рабочий VPN.', style: TextStyle(color: AppColors.textMuted)))),
+      Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(
+        Platform.isWindows
+            ? 'Windows использует официальную службу AmneziaWG. При первом подключении появится UAC. Требуется установленный официальный AmneziaWG for Windows.'
+            : 'Android: VPN и раздельное туннелирование работают через нативный AmneziaWG. iOS будет отдельным этапом с Packet Tunnel Extension.',
+        style: const TextStyle(color: AppColors.textMuted),
+      ))),
     ])));
   });
 

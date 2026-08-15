@@ -85,3 +85,36 @@ jobs:
           name: Pokolenie-WARP-Android
           path: dist/*
           if-no-files-found: error
+
+  windows:
+    name: Windows x64 application
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with: {python-version: '3.12'}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Generate Windows host project
+        run: flutter create . --platforms=windows --org app.pokolenie --project-name pokolenie_vpn
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos --fatal-warnings
+      - run: flutter test --reporter expanded
+      - run: flutter build windows --release
+      - name: Package Windows application
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          Copy-Item -LiteralPath docs/NATIVE_PORTS.md -Destination build/windows/x64/runner/Release/RUNTIME-REQUIREMENTS.md
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/Pokolenie-WARP-Windows-x64.zip -CompressionLevel Optimal
+          (Get-FileHash -Algorithm SHA256 -LiteralPath dist/Pokolenie-WARP-Windows-x64.zip).Hash | Set-Content -LiteralPath dist/Pokolenie-WARP-Windows-x64.sha256 -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pokolenie-WARP-Windows
+          path: dist/*
+          if-no-files-found: error

@@ -1,6 +1,6 @@
-# Pokolenie WARP 1.0
+# Pokolenie WARP 1.1
 
-Чистый Android-клиент WARP/WireGuard/AmneziaWG. В проекте больше нет VLESS,
+Чистый Android/Windows-клиент WARP/WireGuard/AmneziaWG. В проекте больше нет VLESS,
 VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-box.
 
 ## Что работает
@@ -28,6 +28,12 @@ VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-
 Запусти GitHub Actions workflow `Build Pokolenie WARP Android`. Он получает
 официальный `amneziawg-android` 2.0.1, создаёт Android host, применяет
 `tools/prepare_android.py`, выполняет analyzer/tests и выпускает arm64 APK.
+
+Windows job выпускает x64 ZIP с интерфейсом Pokolenie. Для подключения он
+использует официальную установленную службу AmneziaWG for Windows: запуск и
+остановка выполняются через стандартные `/installtunnelservice` и
+`/uninstalltunnelservice`, поэтому Windows показывает UAC. Статистика читается
+через официальный `awg show ... dump`.
 
 Статус нативных Windows/iOS портов и обязательные системные компоненты описаны в
 `docs/NATIVE_PORTS.md`.

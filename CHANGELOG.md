@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0+110
+
+- Добавлен настоящий Windows 10/11 x64 core поверх официальной службы
+  AmneziaWG for Windows.
+- Реализованы UAC-запуск и удаление tunnel service, проверка HTTPS, состояние
+  службы и чтение нативной статистики через `awg`.
+- Добавлена Windows CI-сборка ZIP.
+- App-level split tunnelling в Windows явно заблокирован до отдельной
+  интеграции WFP-драйвера; Android split tunnelling не изменён.
+
 ## 1.0.2+102
 
 - Добавлены три проверенных стартовых профиля: WARP_STR5118,
