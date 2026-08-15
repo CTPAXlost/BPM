@@ -38,7 +38,7 @@ def main() -> None:
     for item in forbidden_paths:
         if (ROOT / item).exists(): errors.append(f'Obsolete path remains: {item}')
     pubspec = read('pubspec.yaml')
-    if 'version: 1.1.4+114' not in pubspec: errors.append('Wrong version')
+    if 'version: 1.1.5+115' not in pubspec: errors.append('Wrong version')
     for token in ('singbox_mm', 'uuid:'):
         if token in pubspec: errors.append(f'Obsolete dependency: {token}')
     joined = '\n'.join(path.read_text(encoding='utf-8-sig') for path in (ROOT / 'lib').rglob('*.dart'))
@@ -48,6 +48,8 @@ def main() -> None:
     core = read('lib/core/android_vpn_core.dart')
     for token in ('generateOneWarp', "AssetSource('audio/toasty.mp3')", 'testAllWarpNodes'):
         if token not in controller: errors.append(f'Missing controller feature: {token}')
+    if "соединение оставлено активным" not in controller:
+        errors.append('Normal connection can still be destroyed by its background probe')
     for token in ('IncludedApplications', 'ExcludedApplications', 'probeVpnNetwork'):
         if token not in core: errors.append(f'Missing native feature: {token}')
     windows_core = read('lib/core/windows_vpn_core.dart')
@@ -71,6 +73,6 @@ def main() -> None:
     if errors:
         print('\n'.join(f'ERROR: {e}' for e in errors))
         raise SystemExit(1)
-    print('Pokolenie WARP 1.1.4 source validation: OK')
+    print('Pokolenie WARP 1.1.5 source validation: OK')
 
 if __name__ == '__main__': main()

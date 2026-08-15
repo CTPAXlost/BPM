@@ -208,21 +208,34 @@ class WindowsVpnCore implements VpnCore {
     if (_state != VpnCoreState.connected) return const ProbeResult(success: false, definitive: false, detail: 'Туннель ещё не подключён.');
     final started = DateTime.now();
     Object? lastError;
+    const targets = <String>[
+      'https://1.1.1.1/cdn-cgi/trace',
+      'https://www.cloudflare.com/cdn-cgi/trace',
+      'https://connectivitycheck.gstatic.com/generate_204',
+    ];
+    var targetIndex = 0;
     while (DateTime.now().difference(started) < timeout) {
       final client = HttpClient()..connectionTimeout = const Duration(seconds: 4)..findProxy = (_) => 'DIRECT';
       try {
-        final request = await client.getUrl(Uri.parse('https://connectivitycheck.gstatic.com/generate_204'));
+        final target = targets[targetIndex++ % targets.length];
+        final request = await client.getUrl(Uri.parse(target));
         request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
         final response = await request.close().timeout(const Duration(seconds: 5));
-        await response.drain<void>();
-        if (response.statusCode == 204 || response.statusCode == 200) {
+        final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 5));
+        final traceConfirmsWarp = target.contains('cdn-cgi/trace') &&
+            (body.contains('warp=on') || body.contains('warp=plus'));
+        final connectivityCheckPassed = target.contains('generate_204') &&
+            (response.statusCode == 204 || response.statusCode == 200);
+        if (traceConfirmsWarp || connectivityCheckPassed) {
           return ProbeResult(success: true, definitive: true, latencyMs: DateTime.now().difference(started).inMilliseconds, detail: 'HTTPS через Windows WARP подтверждён.');
         }
-        lastError = 'HTTP ${response.statusCode}';
+        lastError = traceConfirmsWarp
+            ? null
+            : '$target: HTTP ${response.statusCode}, WARP не подтверждён';
       } catch (error) { lastError = error; } finally { client.close(force: true); }
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
-    return ProbeResult(success: false, definitive: true, detail: 'HTTPS через Windows WARP не прошёл: ${lastError ?? 'тайм-аут'}.');
+    return ProbeResult(success: false, definitive: true, detail: 'Контрольный HTTPS через Windows WARP не прошёл: ${lastError ?? 'тайм-аут'}.');
   }
 
   @override

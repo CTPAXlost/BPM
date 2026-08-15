@@ -165,9 +165,13 @@ class AppController extends ChangeNotifier {
       await _persistNodes();
       return;
     }
-    _setMessage(result.detail);
-    try { await _core.disconnect(); } catch (_) {}
-    if (result.definitive && _settings.autoRemoveUnavailable) await removeNode(node, announce: true);
+    // A connect action is not a destructive profile test. DNS filters and
+    // regional blocking can make a control URL unavailable even while the
+    // tunnel is healthy. Keep the service active; explicit Check actions own
+    // disconnecting and optional removal of a definitively broken profile.
+    _replace(node.copyWith(health: NodeHealth.unknown, clearLatency: true, lastChecked: DateTime.now()));
+    await _persistNodes();
+    _setMessage('WARP запущен. Фоновая проверка не получила ответ, поэтому соединение оставлено активным. ${result.detail}');
   }
 
   Future<void> testNode(VpnNode node) async {
