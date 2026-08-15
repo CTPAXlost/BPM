@@ -37,6 +37,37 @@ String buildWindowsArgumentLine(List<String> arguments) {
   return arguments.map(quoteArgument).join(' ');
 }
 
+({int received, int sent})? parseAwgDumpCounters(String output) {
+  final lines = output
+      .split(RegExp(r'[\r\n]+'))
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList();
+  if (lines.length < 2) return null;
+  var received = 0;
+  var sent = 0;
+  var peers = 0;
+  for (final line in lines.skip(1)) {
+    final fields = line.split(RegExp(r'\s+'));
+    if (fields.length < 8) continue;
+    final peerReceived = int.tryParse(fields[5]);
+    final peerSent = int.tryParse(fields[6]);
+    if (peerReceived == null || peerSent == null) continue;
+    received += peerReceived;
+    sent += peerSent;
+    peers++;
+  }
+  return peers == 0 ? null : (received: received, sent: sent);
+}
+
+({int received, int sent})? parseWindowsAdapterCounters(String output) {
+  final match = RegExp(r'(?m)^\s*(\d+)\s+(\d+)\s*$').firstMatch(output);
+  if (match == null) return null;
+  final received = int.tryParse(match.group(1)!);
+  final sent = int.tryParse(match.group(2)!);
+  return received == null || sent == null ? null : (received: received, sent: sent);
+}
+
 /// Windows host for the official AmneziaWG tunnel service. It deliberately
 /// refuses to fake Android package split tunnelling: Windows app filtering
 /// requires a separately audited WFP driver.
@@ -391,20 +422,16 @@ class WindowsVpnCore implements VpnCore {
         _emit(VpnCoreState.error);
         return;
       }
-      final result = await Process.run(_awgExe!, <String>['show', _tunnelName, 'dump'], runInShell: false);
-      if (result.exitCode != 0) {
-        // The adapter may be RUNNING before its userspace control pipe becomes
-        // readable by the desktop process. A statistics read is observational:
-        // it must never turn a healthy VPN service into an error state.
+      ({int received, int sent})? counters;
+      try {
+        counters = await _readTrafficCounters().timeout(const Duration(seconds: 4));
+      } catch (_) {
+        // Statistics are optional and must never destabilise the VPN session.
         return;
       }
-      final lines = result.stdout.toString().trim().split('\n');
-      if (lines.length < 2) return;
-      var rx = 0; var tx = 0;
-      for (final line in lines.skip(1)) {
-        final fields = line.trim().split(RegExp(r'\s+'));
-        if (fields.length >= 8) { rx += int.tryParse(fields[5]) ?? 0; tx += int.tryParse(fields[6]) ?? 0; }
-      }
+      if (counters == null) return;
+      final rx = counters.received;
+      final tx = counters.sent;
       final now = DateTime.now(); final elapsed = now.difference(_lastSample ?? now).inMilliseconds;
       if (!_traffic.isClosed) _traffic.add(TrafficSnapshot(
         downloadSpeed: elapsed <= 0 ? 0 : (rx - _lastRx).clamp(0, 1 << 62) * 1000 ~/ elapsed,
@@ -413,6 +440,45 @@ class WindowsVpnCore implements VpnCore {
       ));
       _lastRx = rx; _lastTx = tx; _lastSample = now;
     } finally { _readingStats = false; }
+  }
+
+  Future<({int received, int sent})?> _readTrafficCounters() async {
+    // The network adapter is the authoritative Windows traffic source. It is
+    // also readable when the tunnel service's userspace pipe is unavailable
+    // to the desktop user. Telemetry is observational and must never affect a
+    // healthy tunnel.
+    const script = r'''
+$adapter = Get-NetAdapter -IncludeHidden -Name 'pokolenie-warp' -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($null -eq $adapter) {
+  $adapter = Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue |
+    Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -match 'AmneziaWG|WireGuard|Wintun' } |
+    Select-Object -First 1
+}
+if ($null -ne $adapter) {
+  $stats = $adapter | Get-NetAdapterStatistics -ErrorAction SilentlyContinue
+  if ($null -ne $stats) { Write-Output "$($stats.ReceivedBytes) $($stats.SentBytes)" }
+}
+''';
+    final bytes = <int>[];
+    for (final unit in script.codeUnits) {
+      bytes
+        ..add(unit & 0xff)
+        ..add(unit >> 8);
+    }
+    final encoded = base64Encode(bytes);
+    final adapterResult = await Process.run(
+      'powershell.exe',
+      <String>['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+      runInShell: false,
+    );
+    if (adapterResult.exitCode == 0) {
+      final adapterCounters = parseWindowsAdapterCounters(adapterResult.stdout.toString());
+      if (adapterCounters != null) return adapterCounters;
+    }
+
+    final awgResult = await Process.run(_awgExe!, <String>['show', _tunnelName, 'dump'], runInShell: false);
+    if (awgResult.exitCode != 0) return null;
+    return parseAwgDumpCounters(awgResult.stdout.toString());
   }
 
   void _stopStatistics() { _statsTimer?.cancel(); _statsTimer = null; _readingStats = false; _lastRx = 0; _lastTx = 0; _lastSample = null; }

@@ -17,4 +17,16 @@ void main() {
   test('escapes quotes and trailing backslashes for Windows argv', () {
     expect(buildWindowsArgumentLine(<String>[r'a"b', r'C:\folder\']), r'"a\"b" "C:\folder\\"');
   });
+
+  test('parses cumulative receive and send bytes from an AWG dump', () {
+    const dump = 'private public 51820 off\n'
+        'peer1 (none) 1.2.3.4:4500 0.0.0.0/0 10 1200 340 25\n'
+        'peer2 (none) 5.6.7.8:4500 0.0.0.0/0 11 800 60 25\n';
+
+    expect(parseAwgDumpCounters(dump), (received: 2000, sent: 400));
+  });
+
+  test('parses Windows adapter byte counters from PowerShell output', () {
+    expect(parseWindowsAdapterCounters(' 987654 123456\r\n'), (received: 987654, sent: 123456));
+  });
 }
