@@ -57,34 +57,34 @@ class _ToastyEntrance extends StatefulWidget {
 class _ToastyEntranceState extends State<_ToastyEntrance> with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1700),
+    duration: const Duration(milliseconds: 2500),
   );
   late final Animation<Offset> _slide = TweenSequence<Offset>(<TweenSequenceItem<Offset>>[
     TweenSequenceItem(
       tween: Tween<Offset>(begin: const Offset(1.18, 0), end: Offset.zero)
           .chain(CurveTween(curve: Curves.easeOutBack)),
-      weight: 20,
+      weight: 12,
     ),
-    TweenSequenceItem(tween: ConstantTween<Offset>(Offset.zero), weight: 55),
+    TweenSequenceItem(tween: ConstantTween<Offset>(Offset.zero), weight: 72),
     TweenSequenceItem(
       tween: Tween<Offset>(begin: Offset.zero, end: const Offset(1.18, 0))
           .chain(CurveTween(curve: Curves.easeInCubic)),
-      weight: 25,
+      weight: 16,
     ),
   ]).animate(_controller);
   late final Animation<double> _opacity = TweenSequence<double>(<TweenSequenceItem<double>>[
-    TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 12),
-    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 63),
-    TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 25),
+    TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 8),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 76),
+    TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 16),
   ]).animate(_controller);
   late final Animation<double> _scale = TweenSequence<double>(<TweenSequenceItem<double>>[
-    TweenSequenceItem(tween: Tween<double>(begin: .88, end: 1).chain(CurveTween(curve: Curves.easeOutBack)), weight: 20),
-    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 55),
-    TweenSequenceItem(tween: Tween<double>(begin: 1, end: .96), weight: 25),
+    TweenSequenceItem(tween: Tween<double>(begin: .88, end: 1).chain(CurveTween(curve: Curves.easeOutBack)), weight: 12),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 72),
+    TweenSequenceItem(tween: Tween<double>(begin: 1, end: .96), weight: 16),
   ]).animate(_controller);
   late final Animation<double> _textScale = CurvedAnimation(
     parent: _controller,
-    curve: const Interval(.09, .29, curve: Curves.elasticOut),
+    curve: const Interval(.05, .18, curve: Curves.elasticOut),
   );
 
   @override
