@@ -137,7 +137,8 @@ class WindowsVpnCore implements VpnCore {
     String quote(String value) => "'${value.replaceAll("'", "''")}'";
     final argumentList = arguments.map(quote).join(',');
     final script = r'$p=Start-Process -FilePath ' + quote(executable) +
-        ' -ArgumentList @($argumentList) -Verb RunAs -WindowStyle Hidden -Wait -PassThru; exit $p.ExitCode';
+        ' -ArgumentList @($argumentList) -Verb RunAs -WindowStyle Hidden -Wait -PassThru' +
+        r'; exit $p.ExitCode';
     final bytes = <int>[];
     for (final unit in script.codeUnits) { bytes..add(unit & 0xff)..add(unit >> 8); }
     final result = await Process.run(
