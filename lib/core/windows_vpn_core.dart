@@ -180,7 +180,10 @@ class WindowsVpnCore implements VpnCore {
       final exitCode = await _runElevated(<String>['/installtunnelservice', _runtimeConfig!.path]);
       if (exitCode != 0) throw StateError('AmneziaWG service installer: код $exitCode.');
       _serviceInstalled = true;
-      final running = await _waitForService(running: true, timeout: const Duration(seconds: 15));
+      // The first Wintun adapter installation on a fresh Windows system can
+      // remain START_PENDING well beyond 15 seconds. Do not tear the service
+      // down while Windows is still installing and binding the signed driver.
+      final running = await _waitForService(running: true, timeout: const Duration(seconds: 60));
       if (!running) {
         throw StateError(
           'Служба AmneziaWG не перешла в состояние RUNNING. ${await _serviceDiagnostics()}',
@@ -390,9 +393,9 @@ class WindowsVpnCore implements VpnCore {
       }
       final result = await Process.run(_awgExe!, <String>['show', _tunnelName, 'dump'], runInShell: false);
       if (result.exitCode != 0) {
-        _stopStatistics();
-        if (!_traffic.isClosed) _traffic.add(const TrafficSnapshot());
-        _emit(VpnCoreState.error);
+        // The adapter may be RUNNING before its userspace control pipe becomes
+        // readable by the desktop process. A statistics read is observational:
+        // it must never turn a healthy VPN service into an error state.
         return;
       }
       final lines = result.stdout.toString().trim().split('\n');
