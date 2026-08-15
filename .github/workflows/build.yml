@@ -155,7 +155,7 @@ jobs:
           }
           $env:POKOLENIE_RELEASE_DIR = (Resolve-Path -LiteralPath 'build/windows/x64/runner/Release').Path
           $env:POKOLENIE_OUTPUT_DIR = (Resolve-Path -LiteralPath 'dist').Path
-          $env:POKOLENIE_APP_VERSION = '1.2.3'
+          $env:POKOLENIE_APP_VERSION = '1.2.4'
           $env:POKOLENIE_ICON_FILE = (Resolve-Path -LiteralPath 'windows/runner/resources/app_icon.ico').Path
           & $iscc 'tools/windows_installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }

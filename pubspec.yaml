@@ -1,7 +1,7 @@
 name: pokolenie_vpn
 description: WARP and AmneziaWG client with automatic in-app profile generation.
 publish_to: none
-version: 1.2.3+123
+version: 1.2.4+124
 
 environment:
   sdk: '>=3.10.0 <4.0.0'

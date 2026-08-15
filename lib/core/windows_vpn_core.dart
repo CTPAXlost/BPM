@@ -61,7 +61,7 @@ String buildWindowsArgumentLine(List<String> arguments) {
 }
 
 ({int received, int sent})? parseWindowsAdapterCounters(String output) {
-  final match = RegExp(r'(?m)^\s*(\d+)\s+(\d+)\s*$').firstMatch(output);
+  final match = RegExp(r'^\s*(\d+)\s+(\d+)\s*$', multiLine: true).firstMatch(output);
   if (match == null) return null;
   final received = int.tryParse(match.group(1)!);
   final sent = int.tryParse(match.group(2)!);
