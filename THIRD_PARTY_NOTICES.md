@@ -1,17 +1,20 @@
 # Third-party notices
 
-## Flutter packages
-
-The project uses Flutter packages declared in `pubspec.yaml`. Their licenses remain governed by their respective upstream projects.
-
-## singbox_mm
-
-Regular VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and TUIC profiles use the `singbox_mm` Flutter plugin and its Android libbox integration. Retain the package license and its bundled third-party notices when distributing the APK.
-
 ## AmneziaWG Android
 
-WARP/WireGuard/AmneziaWG profiles use the official `amnezia-vpn/amneziawg-android` tunnel module fetched by GitHub Actions from the pinned release tag. Its license and corresponding-source obligations must be retained when distributing builds.
+The Android build integrates the official AmneziaWG Android tunnel module from
+https://github.com/amnezia-vpn/amneziawg-android. Distributions must retain its
+license and upstream notices.
 
-## External WARP generators
+## Flutter packages
 
-Single-profile generation uses HTTPS mirrors of the open-source `nellimonix/warp-config-generator-vercel` project after an explicit user action. The generator is MIT licensed and is not operated by Pokolenie VPN. Source: https://github.com/nellimonix/warp-config-generator-vercel
+The app uses Flutter packages listed in `pubspec.yaml`, including provider,
+http, shared_preferences, crypto, file_selector and audioplayers. Their licenses
+are collected by Flutter in the application license page and build artifacts.
+
+## WARP config generator API
+
+Automatic profile generation calls the public API operated from the
+AGPL-3.0-only project https://github.com/HereIamGosu/amnezia-config-gen. No code
+from that server is embedded in this client; review its privacy and availability
+terms before redistribution.

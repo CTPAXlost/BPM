@@ -12,14 +12,13 @@ void main() {
 
 class PokolenieApp extends StatelessWidget {
   const PokolenieApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<AppController>(
       create: (_) => AppController()..initialize(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Поколение VPN',
+        title: 'Pokolenie WARP',
         theme: buildAppTheme(),
         home: const AppShell(),
       ),

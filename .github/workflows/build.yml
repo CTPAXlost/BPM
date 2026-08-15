@@ -1,18 +1,16 @@
-name: Build Pokolenie VPN Android
+name: Build Pokolenie WARP Android
 
 on:
   workflow_dispatch:
   push:
     branches: [main, master]
-    paths-ignore:
-      - '**.md'
-      - 'catalog/public_catalog.json'
+    paths-ignore: ['**.md']
 
 permissions:
   contents: read
 
 concurrency:
-  group: pokolenie-android-${{ github.ref }}
+  group: pokolenie-warp-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,91 +18,35 @@ env:
   AMNEZIAWG_ANDROID_VERSION: '2.0.1'
 
 jobs:
-  catalog:
-    name: Validate source and catalog
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - name: Static validation
-        run: |
-          python tools/validate_source.py
-          python -m compileall -q tools tests
-          python -m unittest discover -s tests -v
-      - name: Refresh public catalog
-        run: >-
-          python tools/catalog_builder.py
-          --sources catalog/sources.json
-          --output catalog/public_catalog.json
-          --max-per-protocol 50
-          --timeout 2.5
-      - name: Verify catalog is usable
-        shell: python
-        run: |
-          import json
-          from pathlib import Path
-          data = json.loads(Path('catalog/public_catalog.json').read_text(encoding='utf-8'))
-          assert data.get('nodes'), 'Catalog is empty'
-          counts = data.get('counts', {})
-          assert sum(int(counts.get(key, 0)) for key in ('vless', 'trojan', 'ss', 'vmess', 'hysteria2', 'tuic')) > 0
-          print('catalog nodes:', len(data['nodes']))
-          print('catalog counts:', counts)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pokolenie-catalog
-          path: catalog/public_catalog.json
-          if-no-files-found: error
-
   preflight:
-    name: Strict Flutter preflight
-    needs: catalog
+    name: WARP-only preflight
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: pokolenie-catalog
-          path: catalog
+        with: {python-version: '3.12'}
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - name: Validate source
-        run: |
-          python tools/validate_source.py
-          python -m unittest discover -s tests -v
-      - name: Resolve Flutter dependencies
-        run: flutter pub get
-      - name: Strict analyzer
-        run: flutter analyze --fatal-infos --fatal-warnings
-      - name: Flutter tests
-        run: flutter test --reporter expanded
+      - run: python tools/validate_source.py
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos --fatal-warnings
+      - run: flutter test --reporter expanded
 
   android:
     name: Android arm64 APK
-    needs: [catalog, preflight]
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - uses: actions/download-artifact@v4
-        with:
-          name: pokolenie-catalog
-          path: catalog
+        with: {python-version: '3.12'}
       - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+        with: {distribution: temurin, java-version: '17'}
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -112,54 +54,34 @@ jobs:
           cache: true
       - name: Fetch official AmneziaWG Android core
         run: |
-          git clone --depth 1 --branch "${{ env.AMNEZIAWG_ANDROID_VERSION }}" \
-            --recurse-submodules --shallow-submodules \
-            https://github.com/amnezia-vpn/amneziawg-android \
-            third_party/amneziawg-android
+          git clone --depth 1 --branch "${{ env.AMNEZIAWG_ANDROID_VERSION }}" --recurse-submodules --shallow-submodules https://github.com/amnezia-vpn/amneziawg-android third_party/amneziawg-android
           test -f third_party/amneziawg-android/tunnel/src/main/java/org/amnezia/awg/backend/GoBackend.java
       - name: Install Android native toolchain
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;28.2.13676358" \
-            "cmake;3.22.1"
-      - name: Generate Android host project
-        run: flutter create . --platforms=android --org app.pokolenie --project-name pokolenie_vpn
-      - name: Apply Android integration
-        run: python tools/prepare_android.py
-      - name: Validate generated project
-        run: python tools/validate_source.py --allow-generated
-      - name: Resolve dependencies
-        run: flutter pub get
-      - name: Analyze generated project
-        run: flutter analyze --fatal-infos --fatal-warnings
-      - name: Run tests again after generation
-        run: flutter test --reporter expanded
-      - name: Build release APK
-        run: flutter build apk --release --target-platform android-arm64
-      - name: Verify APK contents
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+      - run: flutter create . --platforms=android --org app.pokolenie --project-name pokolenie_vpn
+      - run: python tools/prepare_android.py
+      - run: python tools/validate_source.py --allow-generated
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos --fatal-warnings
+      - run: flutter test --reporter expanded
+      - run: flutter build apk --release --target-platform android-arm64
+      - name: Verify WARP-only APK
         run: |
           APK=build/app/outputs/flutter-apk/app-release.apk
           test -s "$APK"
-          APK_SIZE=$(stat -c%s "$APK")
-          echo "APK size: $APK_SIZE bytes"
-          test "$APK_SIZE" -lt 125829120
-          "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" manifest print "$APK" > build/manifest.txt
-          grep -F 'app.pokolenie.vpn.MainActivity' build/manifest.txt
-          ! grep -F 'app.pokolenie.vpn.WarpGenActivity' build/manifest.txt
+          test "$(stat -c%s "$APK")" -lt 104857600
           unzip -l "$APK" > build/apk-files.txt
           grep -E 'lib/arm64-v8a/lib(wg-go|wg|wg-quick)\.so' build/apk-files.txt
-          grep -E 'lib/arm64-v8a/.*(libbox|singbox|sing-box).*\.so' build/apk-files.txt
+          ! grep -Ei '(libbox|singbox|sing-box)' build/apk-files.txt
       - name: Prepare artifact
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/Pokolenie-VPN-Android-arm64.apk
-          cp build/manifest.txt dist/Pokolenie-VPN-Android-manifest.txt
-          sha256sum dist/Pokolenie-VPN-Android-arm64.apk > dist/Pokolenie-VPN-Android-arm64.sha256
+          cp build/app/outputs/flutter-apk/app-release.apk dist/Pokolenie-WARP-Android-arm64.apk
+          sha256sum dist/Pokolenie-WARP-Android-arm64.apk > dist/Pokolenie-WARP-Android-arm64.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: Pokolenie-VPN-Android
+          name: Pokolenie-WARP-Android
           path: dist/*
           if-no-files-found: error

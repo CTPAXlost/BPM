@@ -669,7 +669,7 @@ def _patch_android_icons() -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / "assets/images" / f"launcher_{size}.png", target)
 
-    drawable = ROOT / "android/app/src/main/res/drawable/ic_stat_singbox_mm.xml"
+    drawable = ROOT / "android/app/src/main/res/drawable/ic_stat_pokolenie.xml"
     drawable.parent.mkdir(parents=True, exist_ok=True)
     drawable.write_text(
         '''<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">

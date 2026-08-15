@@ -25,8 +25,7 @@ class VpnNode {
     return VpnNode(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Без названия',
-      protocol: VpnProtocol.fromKey(json['protocol']?.toString() ?? '') ??
-          VpnProtocol.vless,
+      protocol: VpnProtocol.warp,
       rawConfig:
           json['raw_config']?.toString() ?? json['uri']?.toString() ?? '',
       host: json['host']?.toString() ?? '',
@@ -66,42 +65,6 @@ class VpnNode {
 
   String get endpoint => '$host:$port';
 
-  bool get isWhitelist {
-    if (metadata['catalog_class'] == 'whitelist' ||
-        metadata['special_class'] == 'whitelist') {
-      return true;
-    }
-    final haystack = '$name $source'.toLowerCase();
-    return haystack.contains('белые списки') ||
-        haystack.contains('white list') ||
-        haystack.contains('whitelist') ||
-        haystack.contains('sni-ru') ||
-        haystack.contains('cidr');
-  }
-
-  String get catalogClass => isWhitelist ? 'whitelist' : 'regular';
-
-  String get whitelistSubtype {
-    final explicit = metadata['catalog_subtype']?.toString().trim().toLowerCase() ?? '';
-    if (explicit.isNotEmpty) return explicit;
-    final haystack = '$name $source'.toLowerCase();
-    if (haystack.contains('mobile')) return 'mobile';
-    if (haystack.contains('checked') || haystack.contains('хостер')) {
-      return 'cidr_checked';
-    }
-    if (haystack.contains('sni')) return 'sni';
-    if (haystack.contains('cidr')) return 'cidr_all';
-    return 'other';
-  }
-
-  String get whitelistSubtypeLabel => switch (whitelistSubtype) {
-        'mobile' => 'Mobile TOP',
-        'cidr_checked' => 'CIDR проверенные',
-        'cidr_all' => 'CIDR полный',
-        'sni' => 'SNI',
-        _ => 'Другие',
-      };
-
   int get routeScore {
     final latency = latencyMs ?? 2000;
     var score = latency;
@@ -109,7 +72,6 @@ class VpnNode {
     if (health == NodeHealth.slow) score += 1500;
     if (health == NodeHealth.ready) score += 250;
     if (isFavorite) score -= 250;
-    if (isWhitelist) score -= 100;
     return score;
   }
 

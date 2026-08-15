@@ -1,84 +1,66 @@
 import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
+/// Generates one mobile WARP/AmneziaWG profile without opening a browser or
+/// writing a download. The endpoint is the public API of the open-source
+/// HereIamGosu/amnezia-config-gen project.
 class WarpGeneratorService {
   WarpGeneratorService({http.Client? client}) : _client = client ?? http.Client();
-
   final http.Client _client;
 
-  static const _mirrors = <String>[
-    'https://warp3.llimonix.pw/api/generate',
-    'https://warply3.vercel.app/api/generate',
-    'https://warp.llimonix.workers.dev/api/generate',
-    'https://getwarp3.netlify.app/api/generate',
+  static const _endpoints = <String>[
+    'https://valokda-amnezia.vercel.app/api/warp',
   ];
 
   Future<String> generateOne() async {
     final errors = <String>[];
-    for (final endpoint in _mirrors) {
+    for (final endpoint in _endpoints) {
       try {
-        final response = await _client
-            .post(
-              Uri.parse(endpoint),
-              headers: const <String, String>{
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Pokolenie-VPN/0.9.5 (Android)',
-              },
-              body: jsonEncode(const <String, dynamic>{
-                'selectedServices': <String>[],
-                'siteMode': 'all',
-                'deviceType': 'awg15',
-                'endpoint': 'engage.cloudflareclient.com:4500',
-                'configFormat': 'wireguard',
-                'dnsId': 'cf',
-                'ipv6': false,
-                'excludeLan': true,
-                'persistentKeepalive': 25,
-                'customI1Domain': 'google.com',
-              }),
-            )
-            .timeout(const Duration(seconds: 12));
-        if (response.statusCode == 429) {
-          errors.add('${Uri.parse(endpoint).host}: ограничение частоты');
-          continue;
-        }
-        if (response.statusCode < 200 || response.statusCode >= 300) {
-          errors.add('${Uri.parse(endpoint).host}: HTTP ${response.statusCode}');
-          continue;
-        }
+        final response = await _client.post(
+          Uri.parse(endpoint),
+          headers: const <String, String>{
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Pokolenie-WARP/1.0.0 (Android)',
+          },
+          body: jsonEncode(const <String, dynamic>{
+            'mode': 'legacy',
+            'template': 'warp_amnezia',
+            'mobile': true,
+            'ipv6': false,
+            'persistentKeepalive': 25,
+          }),
+        ).timeout(const Duration(seconds: 30));
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is! Map<String, dynamic> || decoded['success'] != true) {
-          errors.add('${Uri.parse(endpoint).host}: отказ сервера');
+        if (decoded is! Map<String, dynamic>) {
+          errors.add('неизвестный JSON');
           continue;
         }
-        final content = decoded['content'];
-        if (content is! Map<String, dynamic>) {
-          errors.add('${Uri.parse(endpoint).host}: нет конфигурации');
+        if (response.statusCode == 429) {
+          errors.add('лимит частоты');
           continue;
         }
-        final encoded = content['configBase64']?.toString() ?? '';
+        if (response.statusCode < 200 || response.statusCode >= 300 || decoded['success'] != true) {
+          errors.add(decoded['message']?.toString() ?? 'HTTP ${response.statusCode}');
+          continue;
+        }
+        final encoded = decoded['content']?.toString() ?? '';
         if (encoded.isEmpty) {
-          errors.add('${Uri.parse(endpoint).host}: пустая конфигурация');
+          errors.add('пустой ответ');
           continue;
         }
-        final config = utf8.decode(base64Decode(encoded)).trim();
-        if (!config.toLowerCase().contains('[interface]') ||
-            !config.toLowerCase().contains('[peer]')) {
-          errors.add('${Uri.parse(endpoint).host}: неверный формат');
+        final config = utf8.decode(base64Decode(base64.normalize(encoded))).trim();
+        final lower = config.toLowerCase();
+        if (!lower.contains('[interface]') || !lower.contains('[peer]') || !lower.contains('privatekey') || !lower.contains('endpoint')) {
+          errors.add('неполный конфиг');
           continue;
         }
         return '$config\n';
       } catch (error) {
-        errors.add(
-          '${Uri.parse(endpoint).host}: ${error.runtimeType}',
-        );
+        errors.add(error.runtimeType.toString());
       }
     }
-    throw StateError(
-      'Все зеркала генератора временно недоступны: ${errors.join(', ')}.',
-    );
+    throw StateError('Генератор временно недоступен: ${errors.join(', ')}');
   }
 
   void dispose() => _client.close();
