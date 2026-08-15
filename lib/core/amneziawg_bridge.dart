@@ -1,6 +1,23 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
+
+class InstalledAndroidApp {
+  const InstalledAndroidApp({required this.packageName, required this.label, required this.isSystem, this.icon});
+
+  factory InstalledAndroidApp.fromMap(Map<Object?, Object?> raw) => InstalledAndroidApp(
+    packageName: raw['packageName']?.toString() ?? '',
+    label: raw['label']?.toString() ?? raw['packageName']?.toString() ?? '',
+    isSystem: raw['isSystem'] == true,
+    icon: raw['icon'] is Uint8List ? raw['icon'] as Uint8List : null,
+  );
+
+  final String packageName;
+  final String label;
+  final bool isSystem;
+  final Uint8List? icon;
+}
 
 class AwgNetworkStatus {
   const AwgNetworkStatus({
@@ -98,6 +115,16 @@ class AmneziaWgBridge {
     if (!supported) return const AwgTrafficStats(received: 0, sent: 0);
     final raw = await _channel.invokeMapMethod<Object?, Object?>('statistics');
     return AwgTrafficStats.fromMap(raw ?? const <Object?, Object?>{});
+  }
+
+  Future<List<InstalledAndroidApp>> installedApplications() async {
+    if (!supported) return const <InstalledAndroidApp>[];
+    final raw = await _channel.invokeListMethod<Object?>('installedApps') ?? const <Object?>[];
+    return raw
+        .whereType<Map<Object?, Object?>>()
+        .map(InstalledAndroidApp.fromMap)
+        .where((app) => app.packageName.isNotEmpty)
+        .toList(growable: false);
   }
 
   Future<AwgNetworkStatus> networkStatus() async {

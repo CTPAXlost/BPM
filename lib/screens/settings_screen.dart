@@ -6,6 +6,7 @@ import '../models/app_settings.dart';
 import '../services/app_controller.dart';
 import '../theme/app_theme.dart';
 import '../widgets/aurora_background.dart';
+import '../widgets/android_app_selector.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -27,14 +28,14 @@ class SettingsScreen extends StatelessWidget {
           DropdownMenuItem(value: SplitTunnelMode.off, child: Text('Выключено')),
           DropdownMenuItem(value: SplitTunnelMode.include, child: Text('VPN только для выбранных')),
           DropdownMenuItem(value: SplitTunnelMode.exclude, child: Text('VPN для всех, кроме выбранных')),
-        ], onChanged: (v) { if (v != null) controller.updateSettings(s.copyWith(splitTunnelMode: v)); }),
+        ], onChanged: Platform.isWindows ? null : (v) { if (v != null) controller.updateSettings(s.copyWith(splitTunnelMode: v)); }),
         const SizedBox(height: 10),
-        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: Platform.isWindows ? null : () => _editPackages(context, controller), icon: const Icon(Icons.apps), label: Text('Приложения (${s.splitTunnelPackages.length})'))),
+        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: Platform.isWindows ? null : () => _selectApplications(context, controller), icon: const Icon(Icons.apps), label: Text('Выбрать приложения (${s.splitTunnelPackages.length})'))),
         const SizedBox(height: 8),
         Text(
           Platform.isWindows
               ? 'В первой Windows-сборке доступен полный WARP-туннель. Разделение по приложениям заблокировано до интеграции отдельного WFP-драйвера.'
-              : 'Указываются Android package ID, например com.google.android.youtube. Список передаётся напрямую в нативное AWG-ядро.',
+              : 'Выбери установленные приложения из списка. Режим «только для выбранных» передаёт их в IncludedApplications, режим исключения — в ExcludedApplications.',
           style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
         ),
       ]),
@@ -52,11 +53,15 @@ class SettingsScreen extends StatelessWidget {
     ])));
   });
 
-  Future<void> _editPackages(BuildContext context, AppController controller) async {
-    final field = TextEditingController(text: controller.settings.splitTunnelPackages.join('\n'));
-    final result = await showDialog<String>(context: context, builder: (context) => AlertDialog(title: const Text('Package ID приложений'), content: TextField(controller: field, minLines: 6, maxLines: 12, decoration: const InputDecoration(hintText: 'com.example.app\ncom.example.game')), actions: <Widget>[TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')), FilledButton(onPressed: () => Navigator.pop(context, field.text), child: const Text('Сохранить'))]));
-    field.dispose();
-    if (result != null) await controller.updateSettings(controller.settings.copyWith(splitTunnelPackages: result.split(RegExp(r'[\s,;]+')).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList()));
+  Future<void> _selectApplications(BuildContext context, AppController controller) async {
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (_) => AndroidAppSelectorDialog(initialSelection: controller.settings.splitTunnelPackages.toSet()),
+    );
+    if (result != null) {
+      final packages = result.toList(growable: false)..sort();
+      await controller.updateSettings(controller.settings.copyWith(splitTunnelPackages: packages));
+    }
   }
   Future<void> _editDns(BuildContext context, AppController controller) async {
     final field = TextEditingController(text: controller.settings.dns);

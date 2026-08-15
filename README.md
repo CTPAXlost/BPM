@@ -1,4 +1,4 @@
-# Pokolenie WARP 1.1
+# Pokolenie WARP 1.2
 
 Чистый Android/Windows-клиент WARP/WireGuard/AmneziaWG. В проекте больше нет VLESS,
 VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-box.
@@ -14,7 +14,9 @@ VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-
 - проверка не «пингом порта», а временным туннелем и HTTPS-запросом через VPN;
 - строго последовательная массовая проверка без одновременных `VpnService`;
 - автоматическое удаление профиля только после окончательного провала проверки;
-- Android split tunnelling через IncludedApplications/ExcludedApplications;
+- Android split tunnelling через IncludedApplications/ExcludedApplications:
+  выбор установленных приложений по названию и иконке, поиск, режимы
+  «только выбранные через VPN» и «все, кроме выбранных»;
 - нативные счётчики принятого/отправленного трафика;
 - две визуальные темы;
 - прозрачный Toasty-персонаж и звук после успешного запуска туннеля.
@@ -25,17 +27,34 @@ VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-
 
 ## Сборка
 
-Запусти GitHub Actions workflow `Build Pokolenie WARP Android`. Он получает
+Запусти GitHub Actions workflow `Build Pokolenie WARP`. Он получает
 официальный `amneziawg-android` 2.0.1, создаёт Android host, применяет
 `tools/prepare_android.py`, выполняет analyzer/tests и выпускает arm64 APK.
 
-Windows job выпускает самостоятельный x64 ZIP с интерфейсом Pokolenie и
+Windows job выпускает самостоятельный x64 Setup с интерфейсом Pokolenie и
 встроенными файлами официального AmneziaWG 1.0.2. Эта версия соответствует
 legacy/AWG 1.5 профилям с CPS `I1`, которые выдаёт генератор. Отдельный клиент AmneziaWG,
 его интерфейс, ярлык и автозапуск не устанавливаются. Запуск и остановка
 службы конкретного туннеля выполняются через стандартные
 `/installtunnelservice` и `/uninstalltunnelservice`, поэтому Windows показывает
 UAC. Статистика читается через официальный `awg show ... dump`.
+
+Windows-версию необходимо установить через Setup. Запуск VPN-ядра прямо из
+ZIP, Загрузок или Рабочего стола запрещён: LocalSystem-служба должна находиться
+в защищённой папке `Program Files`, иначе кириллица в пути и доступ к файлам
+могут сорвать запуск или создать небезопасную службу.
+
+Конфигурация Windows-службы сохраняется не в папку профиля с именем
+пользователя, а в закрытый каталог `ProgramData/PokolenieWARP/<SID>/runtime`.
+Это исключает повреждение кириллицы старым AWG-ядром и закрывает приватный ключ
+от других локальных пользователей.
+
+В текущем Windows-ядре включён только полный туннель. Android-подобный режим
+«только выбранные приложения через VPN» в Windows отсутствует даже в
+официальном AmneziaVPN; официальный Windows-клиент предлагает лишь исключения
+из VPN и реализует их отдельными WFP-компонентами. Такой драйвер нельзя
+безопасно подменить строками `IncludedApplications` в `.conf`, поэтому
+нерабочий переключатель в Pokolenie не показывается.
 
 Статус нативных Windows/iOS портов и обязательные системные компоненты описаны в
 `docs/NATIVE_PORTS.md`.

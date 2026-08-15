@@ -1,4 +1,4 @@
-name: Build Pokolenie WARP Android
+name: Build Pokolenie WARP
 
 on:
   workflow_dispatch:
@@ -90,7 +90,7 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows x64 application
+    name: Windows x64 installer
     needs: preflight
     runs-on: windows-latest
     timeout-minutes: 35
@@ -105,6 +105,10 @@ jobs:
           cache: true
       - name: Generate Windows host project
         run: flutter create . --platforms=windows --org app.pokolenie --project-name pokolenie_vpn
+      - name: Apply Pokolenie Windows branding and safety checks
+        run: |
+          python tools/prepare_windows.py
+          python tools/validate_source.py --allow-generated
       - run: flutter pub get
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test --reporter expanded
@@ -140,13 +144,24 @@ jobs:
           if (-not (Test-Path -LiteralPath (Join-Path $runtime 'awg.exe'))) {
             throw 'awg.exe was not found in the embedded runtime.'
           }
-      - name: Package Windows application
+      - name: Build Pokolenie WARP installer
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item -LiteralPath docs/NATIVE_PORTS.md -Destination build/windows/x64/runner/Release/TECHNICAL-NOTES.md
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/Pokolenie-WARP-Windows-x64.zip -CompressionLevel Optimal
-          (Get-FileHash -Algorithm SHA256 -LiteralPath dist/Pokolenie-WARP-Windows-x64.zip).Hash | Set-Content -LiteralPath dist/Pokolenie-WARP-Windows-x64.sha256 -Encoding ascii
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) {
+            throw 'Inno Setup 6 is missing on the GitHub Windows runner.'
+          }
+          $env:POKOLENIE_RELEASE_DIR = (Resolve-Path -LiteralPath 'build/windows/x64/runner/Release').Path
+          $env:POKOLENIE_OUTPUT_DIR = (Resolve-Path -LiteralPath 'dist').Path
+          $env:POKOLENIE_APP_VERSION = '1.2.0'
+          $env:POKOLENIE_ICON_FILE = (Resolve-Path -LiteralPath 'windows/runner/resources/app_icon.ico').Path
+          & $iscc 'tools/windows_installer.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
+          $setup = 'dist/Pokolenie-WARP-Windows-x64-Setup.exe'
+          if (-not (Test-Path -LiteralPath $setup)) { throw 'Windows Setup artifact is missing.' }
+          (Get-FileHash -Algorithm SHA256 -LiteralPath $setup).Hash | Set-Content -LiteralPath dist/Pokolenie-WARP-Windows-x64-Setup.sha256 -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
           name: Pokolenie-WARP-Windows

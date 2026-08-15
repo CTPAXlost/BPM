@@ -249,6 +249,17 @@ def _patch_android_manifest() -> None:
     if missing:
         text = _insert_after_opening_tag(text, "manifest", missing)
 
+    if "<queries>" not in text:
+        queries = '''
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+'''
+        text = re.sub(r"(<application\b)", queries + r"\1", text, count=1)
+
     text = re.sub(r'android:label="[^"]*"', 'android:label="Поколение VPN"', text, count=1)
     text = re.sub(
         r'android:name="(?:\.MainActivity|[^\"]*MainActivity)"',
@@ -285,6 +296,10 @@ def _write_main_activity() -> None:
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.VpnService
@@ -297,6 +312,7 @@ import org.amnezia.awg.backend.GoBackend
 import org.amnezia.awg.backend.Tunnel
 import org.amnezia.awg.config.Config
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ExecutorService
@@ -424,6 +440,38 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    private fun iconPng(drawable: Drawable): ByteArray {
+        val size = 48
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, size, size)
+        drawable.draw(canvas)
+        return ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+            bitmap.recycle()
+            stream.toByteArray()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installedApps(): List<Map<String, Any>> {
+        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val seen = mutableSetOf<String>()
+        return packageManager.queryIntentActivities(launchIntent, 0)
+            .mapNotNull { resolved ->
+                val info = resolved.activityInfo?.applicationInfo ?: return@mapNotNull null
+                val packageName = info.packageName
+                if (packageName == applicationContext.packageName || !seen.add(packageName)) return@mapNotNull null
+                mapOf<String, Any>(
+                    "packageName" to packageName,
+                    "label" to info.loadLabel(packageManager).toString(),
+                    "isSystem" to ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0),
+                    "icon" to iconPng(info.loadIcon(packageManager)),
+                )
+            }
+            .sortedBy { item -> item["label"].toString().lowercase() }
+    }
+
     private fun handleAwgCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "requestPermission" -> requestVpnPermission(result)
@@ -466,6 +514,17 @@ class MainActivity : FlutterActivity() {
                 }
             }
             "state" -> result.success(AwgRuntime.state())
+            "installedApps" -> executor.execute {
+                try {
+                    val apps = installedApps()
+                    runOnUiThread { result.success(apps) }
+                } catch (error: Throwable) {
+                    Log.e(TAG, "Unable to list installed applications", error)
+                    runOnUiThread {
+                        result.error("APP_LIST", error.message ?: error.javaClass.simpleName, null)
+                    }
+                }
+            }
             "networkStatus" -> executor.execute {
                 try {
                     val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

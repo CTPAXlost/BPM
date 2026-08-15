@@ -71,11 +71,7 @@ class WindowsVpnCore implements VpnCore {
   Future<void> initialize() async {
     if (!Platform.isWindows) throw UnsupportedError('Windows VPN core запущен не на Windows.');
     await _discoverRuntime();
-    final env = Platform.environment;
-    final local = env['LOCALAPPDATA'];
-    if (local != null && local.isNotEmpty) {
-      _runtimeConfig = File('$local\\Pokolenie WARP\\runtime\\$_tunnelName.conf');
-    }
+    _runtimeConfig = File('${await _runtimeDirectoryPath(createAndProtect: false)}\\$_tunnelName.conf');
     if (_amneziaExe != null && await _serviceRunning()) {
       _serviceInstalled = true;
       _emit(VpnCoreState.connected);
@@ -89,10 +85,10 @@ class WindowsVpnCore implements VpnCore {
     final roots = <String>{
       if ((env['ProgramFiles'] ?? '').isNotEmpty) env['ProgramFiles']!,
       if ((env['ProgramFiles(x86)'] ?? '').isNotEmpty) env['ProgramFiles(x86)']!,
-      if ((env['LOCALAPPDATA'] ?? '').isNotEmpty) env['LOCALAPPDATA']!,
     };
     final amneziaCandidates = <String>[
-      '$applicationDirectory\\runtime\\amneziawg\\amneziawg.exe',
+      if (_isInstalledApplicationDirectory(applicationDirectory, env))
+        '$applicationDirectory\\runtime\\amneziawg\\amneziawg.exe',
       for (final root in roots) '$root\\AmneziaWG\\amneziawg.exe',
       for (final root in roots) '$root\\Programs\\AmneziaWG\\amneziawg.exe',
     ];
@@ -107,8 +103,62 @@ class WindowsVpnCore implements VpnCore {
     }
   }
 
+  bool _isInstalledApplicationDirectory(String directory, Map<String, String> env) {
+    final normalized = Directory(directory).absolute.path.toLowerCase();
+    final protectedRoots = <String>[
+      env['ProgramFiles'] ?? '',
+      env['ProgramFiles(x86)'] ?? '',
+    ].where((root) => root.isNotEmpty).map((root) => Directory(root).absolute.path.toLowerCase());
+    return protectedRoots.any((root) => normalized == root || normalized.startsWith('$root\\'));
+  }
+
   String get _runtimeMissing =>
-      'В этой сборке отсутствует встроенное Windows-ядро. Скачай полный архив Pokolenie WARP и не выноси .exe из его папки.';
+      'Windows-ядро доступно только после установки Pokolenie WARP через Setup.exe. Portable-запуск из Загрузок или Рабочего стола запрещён: системная служба требует защищённый путь Program Files.';
+
+  Future<String> _currentUserSid() async {
+    final result = await Process.run(
+      'whoami.exe',
+      const <String>['/user', '/fo', 'csv', '/nh'],
+      runInShell: false,
+    );
+    final match = RegExp(r'S-\d-(?:\d+-)+\d+', caseSensitive: false)
+        .firstMatch('${result.stdout}\n${result.stderr}');
+    if (result.exitCode != 0 || match == null) {
+      throw StateError('Не удалось определить SID текущего пользователя Windows.');
+    }
+    return match.group(0)!.toUpperCase();
+  }
+
+  /// Keeps the service configuration (and its private key) out of user-name
+  /// paths. Old AmneziaWG releases cannot reliably decode a service command
+  /// line containing Cyrillic, while a SID is always ASCII. The directory ACL
+  /// also prevents other local users from reading the private key.
+  Future<String> _runtimeDirectoryPath({required bool createAndProtect}) async {
+    final programData = Platform.environment['ProgramData'];
+    if (programData == null || programData.isEmpty) {
+      throw StateError('Windows не сообщил путь ProgramData.');
+    }
+    final sid = await _currentUserSid();
+    final directory = Directory('$programData\\PokolenieWARP\\$sid\\runtime');
+    if (createAndProtect) {
+      await directory.create(recursive: true);
+      final acl = await Process.run(
+        'icacls.exe',
+        <String>[
+          directory.path,
+          '/inheritance:r',
+          '/grant:r',
+          '*${sid}:(OI)(CI)F',
+          '*S-1-5-18:(OI)(CI)F',
+        ],
+        runInShell: false,
+      );
+      if (acl.exitCode != 0) {
+        throw StateError('Не удалось защитить каталог конфигурации WARP: ${acl.stderr}');
+      }
+    }
+    return directory.path;
+  }
 
   @override
   Future<void> connect(VpnNode node, AppSettings settings) async {
@@ -123,10 +173,7 @@ class WindowsVpnCore implements VpnCore {
     if (error != null) throw FormatException('Некорректный WARP-конфиг: $error');
     _emit(VpnCoreState.preparing);
     try {
-      final local = Platform.environment['LOCALAPPDATA'];
-      if (local == null || local.isEmpty) throw StateError('Windows не сообщил LOCALAPPDATA.');
-      final directory = Directory('$local\\Pokolenie WARP\\runtime');
-      await directory.create(recursive: true);
+      final directory = Directory(await _runtimeDirectoryPath(createAndProtect: true));
       _runtimeConfig = File('${directory.path}\\$_tunnelName.conf');
       await _runtimeConfig!.writeAsString(_windowsConfig(node, settings), flush: true);
       _emit(VpnCoreState.connecting);
@@ -134,17 +181,33 @@ class WindowsVpnCore implements VpnCore {
       if (exitCode != 0) throw StateError('AmneziaWG service installer: код $exitCode.');
       _serviceInstalled = true;
       final running = await _waitForService(running: true, timeout: const Duration(seconds: 15));
-      if (!running) throw StateError('Служба AmneziaWG не перешла в состояние RUNNING.');
+      if (!running) {
+        throw StateError(
+          'Служба AmneziaWG не перешла в состояние RUNNING. ${await _serviceDiagnostics()}',
+        );
+      }
       _emit(VpnCoreState.connected);
       if (!_silentProbe) _startStatistics();
     } catch (_) {
-      if (!_serviceInstalled) {
+      // A successful installer exit does not guarantee that the service could
+      // parse the profile and start. Never leave a failed LocalSystem service
+      // or its private-key file behind after a connection attempt.
+      var serviceRemoved = !_serviceInstalled;
+      if (_serviceInstalled && _amneziaExe != null) {
+        try {
+          final uninstallCode = await _runElevated(<String>['/uninstalltunnelservice', _tunnelName]);
+          serviceRemoved = uninstallCode == 0 &&
+              await _waitForServiceRemoved(const Duration(seconds: 8));
+        } catch (_) {}
+      }
+      if (serviceRemoved) {
         try {
           if (_runtimeConfig != null && await _runtimeConfig!.exists()) {
             await _runtimeConfig!.delete();
           }
         } catch (_) {}
         _runtimeConfig = null;
+        _serviceInstalled = false;
       }
       _emit(VpnCoreState.error);
       rethrow;
@@ -156,17 +219,26 @@ class WindowsVpnCore implements VpnCore {
     if (_state == VpnCoreState.disconnected) return;
     _emit(VpnCoreState.disconnecting);
     _stopStatistics();
+    var serviceRemoved = !_serviceInstalled;
     try {
       if (_amneziaExe != null && _serviceInstalled) {
-        await _runElevated(<String>['/uninstalltunnelservice', _tunnelName]);
+        final exitCode = await _runElevated(<String>['/uninstalltunnelservice', _tunnelName]);
+        if (exitCode != 0) {
+          throw StateError('Отключение AmneziaWG отменено или завершилось с кодом $exitCode.');
+        }
+        serviceRemoved = await _waitForServiceRemoved(const Duration(seconds: 12));
+        if (!serviceRemoved) throw StateError('Служба AmneziaWG не была удалена.');
       }
-      await _waitForService(running: false, timeout: const Duration(seconds: 12));
-    } finally {
-      try { if (_runtimeConfig != null && await _runtimeConfig!.exists()) await _runtimeConfig!.delete(); } catch (_) {}
-      _runtimeConfig = null;
-      _serviceInstalled = false;
+      if (serviceRemoved) {
+        try { if (_runtimeConfig != null && await _runtimeConfig!.exists()) await _runtimeConfig!.delete(); } catch (_) {}
+        _runtimeConfig = null;
+        _serviceInstalled = false;
+      }
       if (!_traffic.isClosed) _traffic.add(const TrafficSnapshot());
       _emit(VpnCoreState.disconnected);
+    } catch (_) {
+      _emit(VpnCoreState.error);
+      rethrow;
     }
   }
 
@@ -192,6 +264,36 @@ class WindowsVpnCore implements VpnCore {
     final result = await Process.run('sc.exe', <String>['query', _serviceName], runInShell: false);
     final output = '${result.stdout}\n${result.stderr}'.toUpperCase();
     return result.exitCode == 0 && output.contains('RUNNING');
+  }
+
+  Future<bool> _serviceExists() async {
+    final result = await Process.run('sc.exe', <String>['query', _serviceName], runInShell: false);
+    return result.exitCode == 0;
+  }
+
+  Future<bool> _waitForServiceRemoved(Duration timeout) async {
+    final started = DateTime.now();
+    while (DateTime.now().difference(started) < timeout) {
+      if (!await _serviceExists()) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+    return !await _serviceExists();
+  }
+
+  Future<String> _serviceDiagnostics() async {
+    try {
+      final result = await Process.run(
+        'sc.exe',
+        <String>['queryex', _serviceName],
+        runInShell: false,
+      );
+      final output = '${result.stdout}\n${result.stderr}'
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      return output.isEmpty ? 'Служба не зарегистрирована.' : output;
+    } catch (error) {
+      return 'Диагностика службы недоступна: $error';
+    }
   }
 
   Future<bool> _waitForService({required bool running, required Duration timeout}) async {
