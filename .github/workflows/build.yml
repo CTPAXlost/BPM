@@ -16,7 +16,9 @@ concurrency:
 env:
   FLUTTER_VERSION: '3.44.7'
   AMNEZIAWG_ANDROID_VERSION: '2.0.1'
-  AMNEZIAWG_WINDOWS_VERSION: '2.0.2'
+  # The generator deliberately emits AWG 1.5/legacy CPS profiles. Keep the
+  # Windows engine on the matching official generation instead of AWG 2.x.
+  AMNEZIAWG_WINDOWS_VERSION: '1.0.2'
 
 jobs:
   preflight:

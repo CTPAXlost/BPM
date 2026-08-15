@@ -280,8 +280,19 @@ class WindowsVpnCore implements VpnCore {
     if (_readingStats || _state != VpnCoreState.connected || _awgExe == null) return;
     _readingStats = true;
     try {
+      if (!await _serviceRunning()) {
+        _stopStatistics();
+        if (!_traffic.isClosed) _traffic.add(const TrafficSnapshot());
+        _emit(VpnCoreState.error);
+        return;
+      }
       final result = await Process.run(_awgExe!, <String>['show', _tunnelName, 'dump'], runInShell: false);
-      if (result.exitCode != 0) return;
+      if (result.exitCode != 0) {
+        _stopStatistics();
+        if (!_traffic.isClosed) _traffic.add(const TrafficSnapshot());
+        _emit(VpnCoreState.error);
+        return;
+      }
       final lines = result.stdout.toString().trim().split('\n');
       if (lines.length < 2) return;
       var rx = 0; var tx = 0;

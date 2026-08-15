@@ -5,7 +5,7 @@ Android `VpnService`; each needs a platform VPN host and entitlements.
 
 ## Windows
 
-Version 1.1.2 embeds the official signed AmneziaWG x64 tunnel runtime inside the
+Version 1.1.6 embeds the official signed AmneziaWG 1.0.2 x64 tunnel runtime inside the
 Pokolenie WARP ZIP. It does not install or launch the AmneziaWG manager UI and
 does not create a second shortcut or startup entry. It creates a named tunnel
 service with administrator consent, confirms the

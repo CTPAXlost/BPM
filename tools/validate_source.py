@@ -38,7 +38,7 @@ def main() -> None:
     for item in forbidden_paths:
         if (ROOT / item).exists(): errors.append(f'Obsolete path remains: {item}')
     pubspec = read('pubspec.yaml')
-    if 'version: 1.1.5+115' not in pubspec: errors.append('Wrong version')
+    if 'version: 1.1.6+116' not in pubspec: errors.append('Wrong version')
     for token in ('singbox_mm', 'uuid:'):
         if token in pubspec: errors.append(f'Obsolete dependency: {token}')
     joined = '\n'.join(path.read_text(encoding='utf-8-sig') for path in (ROOT / 'lib').rglob('*.dart'))
@@ -58,6 +58,8 @@ def main() -> None:
     workflow = read('.github/workflows/build.yml')
     for token in ('amneziawg-amd64-$version.msi', "Get-AuthenticodeSignature", "Filter amneziawg.exe", "Join-Path $runtime 'awg.exe'"):
         if token not in workflow: errors.append(f'Missing embedded Windows runtime check: {token}')
+    if "AMNEZIAWG_WINDOWS_VERSION: '1.0.2'" not in workflow:
+        errors.append('Windows runtime no longer matches legacy AWG 1.5 generator mode')
     if "r'; exit $p.ExitCode'" not in windows_core:
         errors.append('PowerShell process variable is not protected from Dart interpolation')
     expression = re.compile(r"\b(?:import|export|part)\s+['\"]([^'\"]+)['\"]")
@@ -73,6 +75,6 @@ def main() -> None:
     if errors:
         print('\n'.join(f'ERROR: {e}' for e in errors))
         raise SystemExit(1)
-    print('Pokolenie WARP 1.1.5 source validation: OK')
+    print('Pokolenie WARP 1.1.6 source validation: OK')
 
 if __name__ == '__main__': main()

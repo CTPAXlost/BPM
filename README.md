@@ -30,7 +30,8 @@ VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-
 `tools/prepare_android.py`, выполняет analyzer/tests и выпускает arm64 APK.
 
 Windows job выпускает самостоятельный x64 ZIP с интерфейсом Pokolenie и
-встроенными файлами официального AmneziaWG 2.0.2. Отдельный клиент AmneziaWG,
+встроенными файлами официального AmneziaWG 1.0.2. Эта версия соответствует
+legacy/AWG 1.5 профилям с CPS `I1`, которые выдаёт генератор. Отдельный клиент AmneziaWG,
 его интерфейс, ярлык и автозапуск не устанавливаются. Запуск и остановка
 службы конкретного туннеля выполняются через стандартные
 `/installtunnelservice` и `/uninstalltunnelservice`, поэтому Windows показывает

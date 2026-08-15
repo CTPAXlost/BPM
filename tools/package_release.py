@@ -3,7 +3,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT.parents[1] / "outputs" / "Pokolenie-WARP-v1.1.5-source.zip"
+OUTPUT = ROOT.parents[1] / "outputs" / "Pokolenie-WARP-v1.1.6-source.zip"
 SKIP_PARTS = {
     ".dart_tool",
     ".gradle",
