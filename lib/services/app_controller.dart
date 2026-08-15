@@ -297,7 +297,7 @@ class AppController extends ChangeNotifier {
     _toastyTimer?.cancel();
     _showToasty = true; notifyListeners();
     try { await _toastyPlayer.stop(); await _toastyPlayer.play(AssetSource('audio/toasty.mp3')); } catch (_) {}
-    _toastyTimer = Timer(const Duration(milliseconds: 1700), () { _showToasty = false; notifyListeners(); });
+    _toastyTimer = Timer(const Duration(milliseconds: 1800), () { _showToasty = false; notifyListeners(); });
   }
 
   VpnNode? _byId(String id) { for (final node in _nodes) if (node.id == id) return node; return null; }

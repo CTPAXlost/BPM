@@ -40,24 +40,129 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ],
           ),
         ),
-        IgnorePointer(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            reverseDuration: const Duration(milliseconds: 280),
-            transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween<Offset>(begin: const Offset(1.1, 0.2), end: Offset.zero).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutBack)),
-              child: FadeTransition(opacity: animation, child: child),
-            ),
-            child: controller.showToasty
-                ? Align(
-                    key: const ValueKey('toasty'),
-                    alignment: Alignment.centerRight,
-                    child: Image.asset('assets/images/toasty_face_cutout.png', width: MediaQuery.sizeOf(context).width.clamp(260, 390).toDouble() * .72),
-                  )
-                : const SizedBox(key: ValueKey('empty')),
-          ),
-        ),
+        IgnorePointer(child: _ToastyEntrance(visible: controller.showToasty)),
       ]);
     });
+  }
+}
+
+class _ToastyEntrance extends StatefulWidget {
+  const _ToastyEntrance({required this.visible});
+  final bool visible;
+
+  @override
+  State<_ToastyEntrance> createState() => _ToastyEntranceState();
+}
+
+class _ToastyEntranceState extends State<_ToastyEntrance> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1700),
+  );
+  late final Animation<Offset> _slide = TweenSequence<Offset>(<TweenSequenceItem<Offset>>[
+    TweenSequenceItem(
+      tween: Tween<Offset>(begin: const Offset(1.18, 0), end: Offset.zero)
+          .chain(CurveTween(curve: Curves.easeOutBack)),
+      weight: 20,
+    ),
+    TweenSequenceItem(tween: ConstantTween<Offset>(Offset.zero), weight: 55),
+    TweenSequenceItem(
+      tween: Tween<Offset>(begin: Offset.zero, end: const Offset(1.18, 0))
+          .chain(CurveTween(curve: Curves.easeInCubic)),
+      weight: 25,
+    ),
+  ]).animate(_controller);
+  late final Animation<double> _opacity = TweenSequence<double>(<TweenSequenceItem<double>>[
+    TweenSequenceItem(tween: Tween<double>(begin: 0, end: 1), weight: 12),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 63),
+    TweenSequenceItem(tween: Tween<double>(begin: 1, end: 0), weight: 25),
+  ]).animate(_controller);
+  late final Animation<double> _scale = TweenSequence<double>(<TweenSequenceItem<double>>[
+    TweenSequenceItem(tween: Tween<double>(begin: .88, end: 1).chain(CurveTween(curve: Curves.easeOutBack)), weight: 20),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 55),
+    TweenSequenceItem(tween: Tween<double>(begin: 1, end: .96), weight: 25),
+  ]).animate(_controller);
+  late final Animation<double> _textScale = CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(.09, .29, curve: Curves.elasticOut),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.visible) _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToastyEntrance oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visible && !oldWidget.visible) {
+      _controller.forward(from: 0);
+    } else if (!widget.visible && oldWidget.visible && !_controller.isCompleted) {
+      _controller.animateTo(1, duration: const Duration(milliseconds: 260), curve: Curves.easeInCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final portraitWidth = (screenWidth * .34).clamp(150.0, 225.0).toDouble();
+    final labelWidth = (screenWidth * .25).clamp(88.0, 145.0).toDouble();
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: screenWidth < 600 ? 72 : 76),
+        child: SlideTransition(
+          position: _slide,
+          child: FadeTransition(
+            opacity: _opacity,
+            child: ScaleTransition(
+              scale: _scale,
+              alignment: Alignment.bottomRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: <Widget>[
+                  ScaleTransition(
+                    scale: _textScale,
+                    alignment: Alignment.bottomRight,
+                    child: Transform.rotate(
+                      angle: -.07,
+                      child: SizedBox(
+                        width: labelWidth,
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Text(
+                            'TOASTY!',
+                            style: TextStyle(
+                              color: const Color(0xffffd84a),
+                              fontSize: 38,
+                              fontWeight: FontWeight.w900,
+                              fontStyle: FontStyle.italic,
+                              letterSpacing: -1.5,
+                              shadows: const <Shadow>[
+                                Shadow(color: Colors.black, offset: Offset(3, 3), blurRadius: 1),
+                                Shadow(color: Color(0xffd12b12), offset: Offset(-1, -1), blurRadius: 0),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Image.asset('assets/images/toasty_face_cutout.png', width: portraitWidth),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
