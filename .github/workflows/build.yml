@@ -16,9 +16,9 @@ concurrency:
 env:
   FLUTTER_VERSION: '3.44.7'
   AMNEZIAWG_ANDROID_VERSION: '2.0.1'
-  # The generator deliberately emits AWG 1.5/legacy CPS profiles. Keep the
-  # Windows engine on the matching official generation instead of AWG 2.x.
-  AMNEZIAWG_WINDOWS_VERSION: '1.0.2'
+  # Official 2.0.0 explicitly keeps AWG 1.5 parameter compatibility while
+  # carrying the newer Windows/Wintun integration required by current Win11.
+  AMNEZIAWG_WINDOWS_VERSION: '2.0.0'
 
 jobs:
   preflight:
@@ -155,7 +155,7 @@ jobs:
           }
           $env:POKOLENIE_RELEASE_DIR = (Resolve-Path -LiteralPath 'build/windows/x64/runner/Release').Path
           $env:POKOLENIE_OUTPUT_DIR = (Resolve-Path -LiteralPath 'dist').Path
-          $env:POKOLENIE_APP_VERSION = '1.2.0'
+          $env:POKOLENIE_APP_VERSION = '1.2.1'
           $env:POKOLENIE_ICON_FILE = (Resolve-Path -LiteralPath 'windows/runner/resources/app_icon.ico').Path
           & $iscc 'tools/windows_installer.iss'
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }

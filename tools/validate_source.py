@@ -40,7 +40,7 @@ def main() -> None:
     for item in forbidden_paths:
         if (ROOT / item).exists(): errors.append(f'Obsolete path remains: {item}')
     pubspec = read('pubspec.yaml')
-    if 'version: 1.2.0+120' not in pubspec: errors.append('Wrong version')
+    if 'version: 1.2.1+121' not in pubspec: errors.append('Wrong version')
     for token in ('singbox_mm', 'uuid:'):
         if token in pubspec: errors.append(f'Obsolete dependency: {token}')
     joined = '\n'.join(path.read_text(encoding='utf-8-sig') for path in (ROOT / 'lib').rglob('*.dart'))
@@ -58,7 +58,7 @@ def main() -> None:
     android_prep = read('tools/prepare_android.py')
     for token in ('installedApplications', "invokeListMethod<Object?>('installedApps')"):
         if token not in bridge: errors.append(f'Missing Android app picker bridge: {token}')
-    for token in ('android.intent.category.LAUNCHER', 'private fun installedApps()', 'iconPng(info.loadIcon'):
+    for token in ('android.permission.QUERY_ALL_PACKAGES', 'getInstalledApplications(0)', 'private fun installedApps()', 'iconPng(info.loadIcon'):
         if token not in android_prep: errors.append(f'Missing native Android app picker: {token}')
     windows_core = read('lib/core/windows_vpn_core.dart')
     for token in ('/installtunnelservice', '/uninstalltunnelservice', 'AmneziaWGTunnel', 'validateConnected', r'runtime\\amneziawg\\amneziawg.exe', 'buildWindowsArgumentLine(arguments)', "Platform.environment['ProgramData']", "'*S-1-5-18:(OI)(CI)F'", "'whoami.exe'"):
@@ -68,8 +68,8 @@ def main() -> None:
     workflow = read('.github/workflows/build.yml')
     for token in ('amneziawg-amd64-$version.msi', "Get-AuthenticodeSignature", "Filter amneziawg.exe", "Join-Path $runtime 'awg.exe'"):
         if token not in workflow: errors.append(f'Missing embedded Windows runtime check: {token}')
-    if "AMNEZIAWG_WINDOWS_VERSION: '1.0.2'" not in workflow:
-        errors.append('Windows runtime no longer matches legacy AWG 1.5 generator mode')
+    if "AMNEZIAWG_WINDOWS_VERSION: '2.0.0'" not in workflow:
+        errors.append('Windows runtime no longer matches the AWG 1.5-compatible Win11 engine')
     for token in ('python tools/prepare_windows.py', 'ISCC.exe', 'Pokolenie-WARP-Windows-x64-Setup.exe'):
         if token not in workflow: errors.append(f'Missing Windows installer feature: {token}')
     if "r'; exit $p.ExitCode'" not in windows_core:
@@ -87,6 +87,6 @@ def main() -> None:
     if errors:
         print('\n'.join(f'ERROR: {e}' for e in errors))
         raise SystemExit(1)
-    print('Pokolenie WARP 1.2.0 source validation: OK')
+    print('Pokolenie WARP 1.2.1 source validation: OK')
 
 if __name__ == '__main__': main()

@@ -240,6 +240,7 @@ def _patch_android_manifest() -> None:
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
         "android.permission.POST_NOTIFICATIONS",
+        "android.permission.QUERY_ALL_PACKAGES",
     ]
     missing = "".join(
         f'\n    <uses-permission android:name="{permission}" />'
@@ -248,17 +249,6 @@ def _patch_android_manifest() -> None:
     )
     if missing:
         text = _insert_after_opening_tag(text, "manifest", missing)
-
-    if "<queries>" not in text:
-        queries = '''
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-    </queries>
-'''
-        text = re.sub(r"(<application\b)", queries + r"\1", text, count=1)
 
     text = re.sub(r'android:label="[^"]*"', 'android:label="Поколение VPN"', text, count=1)
     text = re.sub(
@@ -455,19 +445,20 @@ class MainActivity : FlutterActivity() {
 
     @Suppress("DEPRECATION")
     private fun installedApps(): List<Map<String, Any>> {
-        val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val seen = mutableSetOf<String>()
-        return packageManager.queryIntentActivities(launchIntent, 0)
-            .mapNotNull { resolved ->
-                val info = resolved.activityInfo?.applicationInfo ?: return@mapNotNull null
+        return packageManager.getInstalledApplications(0)
+            .mapNotNull { info ->
                 val packageName = info.packageName
-                if (packageName == applicationContext.packageName || !seen.add(packageName)) return@mapNotNull null
-                mapOf<String, Any>(
+                if (packageName == applicationContext.packageName) return@mapNotNull null
+                val item = mutableMapOf<String, Any>(
                     "packageName" to packageName,
-                    "label" to info.loadLabel(packageManager).toString(),
+                    "label" to runCatching {
+                        info.loadLabel(packageManager).toString()
+                    }.getOrDefault(packageName),
                     "isSystem" to ((info.flags and ApplicationInfo.FLAG_SYSTEM) != 0),
-                    "icon" to iconPng(info.loadIcon(packageManager)),
                 )
+                runCatching { iconPng(info.loadIcon(packageManager)) }
+                    .onSuccess { icon -> item["icon"] = icon }
+                item
             }
             .sortedBy { item -> item["label"].toString().lowercase() }
     }
