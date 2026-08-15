@@ -37,7 +37,7 @@ def main() -> None:
     for item in forbidden_paths:
         if (ROOT / item).exists(): errors.append(f'Obsolete path remains: {item}')
     pubspec = read('pubspec.yaml')
-    if 'version: 1.1.1+111' not in pubspec: errors.append('Wrong version')
+    if 'version: 1.1.2+112' not in pubspec: errors.append('Wrong version')
     for token in ('singbox_mm', 'uuid:'):
         if token in pubspec: errors.append(f'Obsolete dependency: {token}')
     joined = '\n'.join(path.read_text(encoding='utf-8-sig') for path in (ROOT / 'lib').rglob('*.dart'))
@@ -50,8 +50,11 @@ def main() -> None:
     for token in ('IncludedApplications', 'ExcludedApplications', 'probeVpnNetwork'):
         if token not in core: errors.append(f'Missing native feature: {token}')
     windows_core = read('lib/core/windows_vpn_core.dart')
-    for token in ('/installtunnelservice', '/uninstalltunnelservice', 'AmneziaWGTunnel', 'validateConnected'):
+    for token in ('/installtunnelservice', '/uninstalltunnelservice', 'AmneziaWGTunnel', 'validateConnected', r'runtime\\amneziawg\\amneziawg.exe'):
         if token not in windows_core: errors.append(f'Missing Windows feature: {token}')
+    workflow = read('.github/workflows/build.yml')
+    for token in ('amneziawg-amd64-$version.msi', "Get-AuthenticodeSignature", "Filter amneziawg.exe", "Join-Path $runtime 'awg.exe'"):
+        if token not in workflow: errors.append(f'Missing embedded Windows runtime check: {token}')
     if "r'; exit $p.ExitCode'" not in windows_core:
         errors.append('PowerShell process variable is not protected from Dart interpolation')
     expression = re.compile(r"\b(?:import|export|part)\s+['\"]([^'\"]+)['\"]")
@@ -67,6 +70,6 @@ def main() -> None:
     if errors:
         print('\n'.join(f'ERROR: {e}' for e in errors))
         raise SystemExit(1)
-    print('Pokolenie WARP 1.1.1 source validation: OK')
+    print('Pokolenie WARP 1.1.2 source validation: OK')
 
 if __name__ == '__main__': main()

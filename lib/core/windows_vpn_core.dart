@@ -40,23 +40,8 @@ class WindowsVpnCore implements VpnCore {
   @override
   Future<void> initialize() async {
     if (!Platform.isWindows) throw UnsupportedError('Windows VPN core запущен не на Windows.');
+    await _discoverRuntime();
     final env = Platform.environment;
-    final roots = <String>{
-      if ((env['ProgramFiles'] ?? '').isNotEmpty) env['ProgramFiles']!,
-      if ((env['ProgramFiles(x86)'] ?? '').isNotEmpty) env['ProgramFiles(x86)']!,
-      if ((env['LOCALAPPDATA'] ?? '').isNotEmpty) env['LOCALAPPDATA']!,
-    };
-    final amneziaCandidates = <String>[
-      for (final root in roots) '$root\\AmneziaWG\\amneziawg.exe',
-      for (final root in roots) '$root\\Programs\\AmneziaWG\\amneziawg.exe',
-    ];
-    for (final candidate in amneziaCandidates) {
-      if (await File(candidate).exists()) { _amneziaExe = candidate; break; }
-    }
-    if (_amneziaExe != null) {
-      final sibling = '${File(_amneziaExe!).parent.path}\\awg.exe';
-      if (await File(sibling).exists()) _awgExe = sibling;
-    }
     final local = env['LOCALAPPDATA'];
     if (local != null && local.isNotEmpty) {
       _runtimeConfig = File('$local\\Pokolenie WARP\\runtime\\$_tunnelName.conf');
@@ -68,8 +53,32 @@ class WindowsVpnCore implements VpnCore {
     }
   }
 
+  Future<void> _discoverRuntime() async {
+    final env = Platform.environment;
+    final applicationDirectory = File(Platform.resolvedExecutable).parent.path;
+    final roots = <String>{
+      if ((env['ProgramFiles'] ?? '').isNotEmpty) env['ProgramFiles']!,
+      if ((env['ProgramFiles(x86)'] ?? '').isNotEmpty) env['ProgramFiles(x86)']!,
+      if ((env['LOCALAPPDATA'] ?? '').isNotEmpty) env['LOCALAPPDATA']!,
+    };
+    final amneziaCandidates = <String>[
+      '$applicationDirectory\\runtime\\amneziawg\\amneziawg.exe',
+      for (final root in roots) '$root\\AmneziaWG\\amneziawg.exe',
+      for (final root in roots) '$root\\Programs\\AmneziaWG\\amneziawg.exe',
+    ];
+    _amneziaExe = null;
+    _awgExe = null;
+    for (final candidate in amneziaCandidates) {
+      if (await File(candidate).exists()) { _amneziaExe = candidate; break; }
+    }
+    if (_amneziaExe != null) {
+      final sibling = '${File(_amneziaExe!).parent.path}\\awg.exe';
+      if (await File(sibling).exists()) _awgExe = sibling;
+    }
+  }
+
   String get _runtimeMissing =>
-      'Установи официальный AmneziaWG for Windows, затем перезапусти Pokolenie WARP.';
+      'В этой сборке отсутствует встроенное Windows-ядро. Скачай полный архив Pokolenie WARP и не выноси .exe из его папки.';
 
   @override
   Future<void> connect(VpnNode node, AppSettings settings) async {

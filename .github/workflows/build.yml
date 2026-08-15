@@ -16,6 +16,7 @@ concurrency:
 env:
   FLUTTER_VERSION: '3.44.7'
   AMNEZIAWG_ANDROID_VERSION: '2.0.1'
+  AMNEZIAWG_WINDOWS_VERSION: '2.0.2'
 
 jobs:
   preflight:
@@ -106,11 +107,42 @@ jobs:
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: flutter test --reporter expanded
       - run: flutter build windows --release
+      - name: Embed official AmneziaWG x64 tunnel runtime
+        shell: pwsh
+        run: |
+          $version = '${{ env.AMNEZIAWG_WINDOWS_VERSION }}'
+          $uri = "https://github.com/amnezia-vpn/amneziawg-windows-client/releases/download/$version/amneziawg-amd64-$version.msi"
+          $msi = Join-Path $env:RUNNER_TEMP 'amneziawg-runtime.msi'
+          $stage = Join-Path $env:RUNNER_TEMP 'amneziawg-runtime-stage'
+          Invoke-WebRequest -Uri $uri -OutFile $msi
+          $signature = Get-AuthenticodeSignature -LiteralPath $msi
+          if ($signature.Status -ne 'Valid') {
+            throw "Official AmneziaWG MSI signature is not valid: $($signature.Status)"
+          }
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          $process = Start-Process -FilePath msiexec.exe -ArgumentList @('/a', $msi, '/qn', "TARGETDIR=$stage") -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Unable to extract official AmneziaWG MSI: exit code $($process.ExitCode)"
+          }
+          $engine = Get-ChildItem -LiteralPath $stage -Recurse -File -Filter amneziawg.exe | Select-Object -First 1
+          if ($null -eq $engine) {
+            throw 'amneziawg.exe was not found in the official MSI.'
+          }
+          $runtime = 'build/windows/x64/runner/Release/runtime/amneziawg'
+          New-Item -ItemType Directory -Path $runtime -Force | Out-Null
+          Copy-Item -Path (Join-Path $engine.Directory.FullName '*') -Destination $runtime -Recurse -Force
+          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/amnezia-vpn/amneziawg-windows-client/master/LICENSE' -OutFile (Join-Path $runtime 'LICENSE.txt')
+          Get-ChildItem -LiteralPath $runtime -File | ForEach-Object {
+            "$(($_ | Get-FileHash -Algorithm SHA256).Hash)  $($_.Name)"
+          } | Set-Content -LiteralPath (Join-Path $runtime 'SHA256SUMS.txt') -Encoding ascii
+          if (-not (Test-Path -LiteralPath (Join-Path $runtime 'awg.exe'))) {
+            throw 'awg.exe was not found in the embedded runtime.'
+          }
       - name: Package Windows application
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          Copy-Item -LiteralPath docs/NATIVE_PORTS.md -Destination build/windows/x64/runner/Release/RUNTIME-REQUIREMENTS.md
+          Copy-Item -LiteralPath docs/NATIVE_PORTS.md -Destination build/windows/x64/runner/Release/TECHNICAL-NOTES.md
           Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath dist/Pokolenie-WARP-Windows-x64.zip -CompressionLevel Optimal
           (Get-FileHash -Algorithm SHA256 -LiteralPath dist/Pokolenie-WARP-Windows-x64.zip).Hash | Set-Content -LiteralPath dist/Pokolenie-WARP-Windows-x64.sha256 -Encoding ascii
       - uses: actions/upload-artifact@v4

@@ -45,7 +45,7 @@ class SettingsScreen extends StatelessWidget {
       ]),
       Card(child: Padding(padding: const EdgeInsets.all(16), child: Text(
         Platform.isWindows
-            ? 'Windows использует официальную службу AmneziaWG. При первом подключении появится UAC. Требуется установленный официальный AmneziaWG for Windows.'
+            ? 'Windows использует встроенное официальное AmneziaWG-ядро. Отдельное приложение не устанавливается; UAC нужен только для запуска системной службы туннеля.'
             : 'Android: VPN и раздельное туннелирование работают через нативный AmneziaWG. iOS будет отдельным этапом с Packet Tunnel Extension.',
         style: const TextStyle(color: AppColors.textMuted),
       ))),

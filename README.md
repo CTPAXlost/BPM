@@ -29,11 +29,12 @@ VMess, Trojan, Shadowsocks, подписок, GitHub-каталогов и sing-
 официальный `amneziawg-android` 2.0.1, создаёт Android host, применяет
 `tools/prepare_android.py`, выполняет analyzer/tests и выпускает arm64 APK.
 
-Windows job выпускает x64 ZIP с интерфейсом Pokolenie. Для подключения он
-использует официальную установленную службу AmneziaWG for Windows: запуск и
-остановка выполняются через стандартные `/installtunnelservice` и
-`/uninstalltunnelservice`, поэтому Windows показывает UAC. Статистика читается
-через официальный `awg show ... dump`.
+Windows job выпускает самостоятельный x64 ZIP с интерфейсом Pokolenie и
+встроенными файлами официального AmneziaWG 2.0.2. Отдельный клиент AmneziaWG,
+его интерфейс, ярлык и автозапуск не устанавливаются. Запуск и остановка
+службы конкретного туннеля выполняются через стандартные
+`/installtunnelservice` и `/uninstalltunnelservice`, поэтому Windows показывает
+UAC. Статистика читается через официальный `awg show ... dump`.
 
 Статус нативных Windows/iOS портов и обязательные системные компоненты описаны в
 `docs/NATIVE_PORTS.md`.
