@@ -131,7 +131,7 @@ jobs:
           $runtime = 'build/windows/x64/runner/Release/runtime/amneziawg'
           New-Item -ItemType Directory -Path $runtime -Force | Out-Null
           Copy-Item -Path (Join-Path $engine.Directory.FullName '*') -Destination $runtime -Recurse -Force
-          Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/amnezia-vpn/amneziawg-windows-client/master/LICENSE' -OutFile (Join-Path $runtime 'LICENSE.txt')
+          Copy-Item -LiteralPath 'docs/licenses/AMNEZIAWG-WINDOWS-MIT.txt' -Destination (Join-Path $runtime 'LICENSE.txt')
           Get-ChildItem -LiteralPath $runtime -File | ForEach-Object {
             "$(($_ | Get-FileHash -Algorithm SHA256).Hash)  $($_.Name)"
           } | Set-Content -LiteralPath (Join-Path $runtime 'SHA256SUMS.txt') -Encoding ascii

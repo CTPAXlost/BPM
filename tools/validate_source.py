@@ -24,6 +24,7 @@ def main() -> None:
         'assets/warp/WARP_STR5118.conf', 'assets/warp/WARP_STR8605.conf',
         'assets/warp/WARP_STR4470.conf',
         'assets/images/theme_nightmare.webp', 'assets/images/theme_symbiosis.webp',
+        'docs/licenses/AMNEZIAWG-WINDOWS-MIT.txt',
         'tools/prepare_android.py', '.github/workflows/build.yml',
     )
     for item in required:
@@ -37,7 +38,7 @@ def main() -> None:
     for item in forbidden_paths:
         if (ROOT / item).exists(): errors.append(f'Obsolete path remains: {item}')
     pubspec = read('pubspec.yaml')
-    if 'version: 1.1.2+112' not in pubspec: errors.append('Wrong version')
+    if 'version: 1.1.3+113' not in pubspec: errors.append('Wrong version')
     for token in ('singbox_mm', 'uuid:'):
         if token in pubspec: errors.append(f'Obsolete dependency: {token}')
     joined = '\n'.join(path.read_text(encoding='utf-8-sig') for path in (ROOT / 'lib').rglob('*.dart'))
@@ -70,6 +71,6 @@ def main() -> None:
     if errors:
         print('\n'.join(f'ERROR: {e}' for e in errors))
         raise SystemExit(1)
-    print('Pokolenie WARP 1.1.2 source validation: OK')
+    print('Pokolenie WARP 1.1.3 source validation: OK')
 
 if __name__ == '__main__': main()
